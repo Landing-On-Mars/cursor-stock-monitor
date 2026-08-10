@@ -251,7 +251,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   border-bottom: 1px solid #eef0ed;
   display: grid;
   gap: 12px;
-  grid-template-columns: 34px 90px minmax(150px, 1fr) 58px 66px;
+  grid-template-columns: 34px 90px minmax(150px, 1fr) 58px 112px;
   padding: 11px 16px;
 }
 .managed-watch-row:last-child { border-bottom: 0; }
@@ -278,6 +278,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   width: 28px;
 }
 .row-actions button:hover, .modal-head button:hover { background: #edf1ed; color: var(--green); }
+.row-actions button.move-action { font-size: 9px; gap: 4px; padding: 0 7px; white-space: nowrap; width: auto; }
 .row-actions button.danger-action:hover { background: var(--red-soft); color: var(--red); }
 .row-actions button:disabled { cursor: wait; opacity: .4; }
 .watchlist-empty {

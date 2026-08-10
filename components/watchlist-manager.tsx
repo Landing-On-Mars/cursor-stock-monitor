@@ -247,11 +247,13 @@ export function WatchlistManager() {
                 </span>
                 <div className="row-actions">
                   <button
+                    className="move-action"
                     disabled={busyId === item.id}
                     onClick={() => void moveItem(item)}
                     title={`移动到${categoryText[item.category === "CORE" ? "WATCH" : "CORE"]}`}
                   >
                     <ArrowRightLeft size={14} />
+                    <span>移至{categoryText[item.category === "CORE" ? "WATCH" : "CORE"]}</span>
                   </button>
                   <button
                     className="danger-action"
