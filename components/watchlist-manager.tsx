@@ -2,13 +2,15 @@
 
 import {
   ArrowRightLeft,
+  Check,
+  LoaderCircle,
   Plus,
   Search,
   Star,
   Trash2,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   type Market,
   type WatchlistCategory,
@@ -34,6 +36,13 @@ type FormState = {
   note: string;
 };
 
+type StockSearchResult = {
+  symbol: string;
+  yahooSymbol: string;
+  name: string;
+  market: Market;
+};
+
 const emptyForm: FormState = {
   symbol: "",
   name: "",
@@ -57,6 +66,12 @@ export function WatchlistManager() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [stockQuery, setStockQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequest = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -84,6 +99,13 @@ export function WatchlistManager() {
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    },
+    [],
+  );
+
   const counts = useMemo(
     () => ({
       CORE: items.filter((item) => item.category === "CORE").length,
@@ -105,8 +127,64 @@ export function WatchlistManager() {
 
   function openCreateForm() {
     setForm({ ...emptyForm, category });
+    setStockQuery("");
+    setSearchResults([]);
+    setSearchError("");
+    setSearching(false);
     setError("");
     setModalOpen(true);
+  }
+
+  function searchStocks(value: string) {
+    setStockQuery(value);
+    setForm((current) => ({ ...current, symbol: "", name: "" }));
+    setSearchResults([]);
+    setSearchError("");
+
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    const queryValue = value.trim();
+
+    if (!queryValue) {
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const requestId = ++searchRequest.current;
+
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/stocks/search?q=${encodeURIComponent(queryValue)}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) throw new Error(await readError(response));
+
+        const results = (await response.json()) as StockSearchResult[];
+        if (requestId !== searchRequest.current) return;
+        setSearchResults(results);
+        if (results.length === 0) setSearchError("没有找到可添加的股票。");
+      } catch (requestError) {
+        if (requestId !== searchRequest.current) return;
+        setSearchError(
+          requestError instanceof Error ? requestError.message : "股票搜索失败。",
+        );
+      } finally {
+        if (requestId === searchRequest.current) setSearching(false);
+      }
+    }, 280);
+  }
+
+  function selectStock(result: StockSearchResult) {
+    setForm((current) => ({
+      ...current,
+      symbol: result.symbol,
+      name: result.name,
+      market: result.market,
+    }));
+    setStockQuery(`${result.symbol} · ${result.name}`);
+    setSearchResults([]);
+    setSearchError("");
   }
 
   async function createItem(event: FormEvent<HTMLFormElement>) {
@@ -280,41 +358,47 @@ export function WatchlistManager() {
             role="dialog"
           >
             <div className="modal-head">
-              <div><h2 id="add-stock-title">添加自选股</h2><p>行情自动搜索将在接入数据源后开放</p></div>
+              <div><h2 id="add-stock-title">添加自选股</h2><p>搜索结果来自 Yahoo Finance</p></div>
               <button onClick={() => setModalOpen(false)} aria-label="关闭"><X size={18} /></button>
             </div>
             <form onSubmit={createItem}>
               <div className="form-grid">
-                <label className="field">
-                  <span>股票代码</span>
-                  <input
-                    autoFocus
-                    onChange={(event) => setForm({ ...form, symbol: event.target.value })}
-                    placeholder="例如 AAPL、0700、600519"
-                    required
-                    value={form.symbol}
-                  />
-                </label>
-                <label className="field">
-                  <span>股票名称</span>
-                  <input
-                    onChange={(event) => setForm({ ...form, name: event.target.value })}
-                    placeholder="例如 Apple"
-                    required
-                    value={form.name}
-                  />
-                </label>
-                <label className="field">
-                  <span>市场</span>
-                  <select
-                    onChange={(event) => setForm({ ...form, market: event.target.value as Market })}
-                    value={form.market}
-                  >
-                    <option value="US">美股</option>
-                    <option value="HK">港股</option>
-                    <option value="CN">A股</option>
-                  </select>
-                </label>
+                <div className="field field-full stock-picker">
+                  <span>搜索股票代码或公司名称</span>
+                  <div className={`stock-search-input ${form.symbol ? "selected" : ""}`}>
+                    {searching ? <LoaderCircle className="spin" size={15} /> : form.symbol ? <Check size={15} /> : <Search size={15} />}
+                    <input
+                      autoComplete="off"
+                      autoFocus
+                      onChange={(event) => searchStocks(event.target.value)}
+                      placeholder="例如 300308、Apple、腾讯"
+                      required
+                      value={stockQuery}
+                    />
+                  </div>
+                  {searchResults.length > 0 && (
+                    <div className="stock-search-results">
+                      {searchResults.map((result) => (
+                        <button
+                          key={`${result.market}-${result.symbol}`}
+                          onClick={() => selectStock(result)}
+                          type="button"
+                        >
+                          <span className={`market-icon market-${result.market.toLowerCase()}`}>{result.market}</span>
+                          <span className="stock-result-main"><strong>{result.name}</strong><small>{result.yahooSymbol}</small></span>
+                          <span className="stock-result-market">{marketText[result.market]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {searchError && <small className="field-error">{searchError}</small>}
+                  {form.symbol && (
+                    <div className="selected-stock">
+                      <Check size={13} />
+                      已选择 {form.name}（{form.symbol}）· {marketText[form.market]}
+                    </div>
+                  )}
+                </div>
                 <label className="field">
                   <span>分组</span>
                   <select
@@ -338,7 +422,7 @@ export function WatchlistManager() {
               {error && <div className="inline-error">{error}</div>}
               <div className="modal-actions">
                 <button className="btn" onClick={() => setModalOpen(false)} type="button">取消</button>
-                <button className="btn btn-primary" disabled={submitting} type="submit">
+                <button className="btn btn-primary" disabled={submitting || !form.symbol} type="submit">
                   {submitting ? "正在添加…" : "添加到自选股"}
                 </button>
               </div>

@@ -333,6 +333,57 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: #7fa38f; box-shadow: 0 0 0 3px rgba(69, 125, 91, .1); }
 .field-full { grid-column: 1 / -1; }
+.stock-picker { position: relative; }
+.stock-search-input {
+  align-items: center;
+  background: #fbfcfb;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  padding-left: 10px;
+}
+.stock-search-input:focus-within { border-color: #7fa38f; box-shadow: 0 0 0 3px rgba(69, 125, 91, .1); }
+.stock-search-input.selected { background: #f5faf7; border-color: #9dbba9; color: var(--green); }
+.stock-search-input input { background: transparent; border: 0; box-shadow: none; padding-left: 0; }
+.stock-search-input input:focus { border: 0; box-shadow: none; }
+.stock-search-results {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(18, 29, 21, .13);
+  left: 0;
+  max-height: 238px;
+  overflow-y: auto;
+  position: absolute;
+  right: 0;
+  top: 63px;
+  z-index: 3;
+}
+.stock-search-results button {
+  align-items: center;
+  background: white;
+  border: 0;
+  border-bottom: 1px solid #eef0ed;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  padding: 9px 10px;
+  text-align: left;
+  width: 100%;
+}
+.stock-search-results button:last-child { border-bottom: 0; }
+.stock-search-results button:hover, .stock-search-results button:focus { background: #f4f7f4; outline: 0; }
+.stock-result-main { flex: 1; min-width: 0; }
+.stock-result-main strong, .stock-result-main small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stock-result-main strong { font-size: 10px; }
+.stock-result-main small { color: var(--muted); font-size: 9px; margin-top: 3px; }
+.stock-result-market { color: var(--muted); font-size: 9px; }
+.selected-stock { align-items: center; color: var(--green); display: flex; font-size: 9px; gap: 5px; }
+.field-error { color: var(--red); font-size: 9px; }
+.spin { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .modal-actions { border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; padding-top: 14px; }
 .modal-actions .btn:disabled { cursor: wait; opacity: .65; }
 
