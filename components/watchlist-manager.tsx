@@ -8,7 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   type Market,
   type WatchlistCategory,
@@ -58,22 +58,31 @@ export function WatchlistManager() {
   const [error, setError] = useState("");
   const [form, setForm] = useState<FormState>(emptyForm);
 
-  const loadItems = useCallback(async () => {
-    try {
-      const response = await fetch("/api/watchlist", { cache: "no-store" });
-      if (!response.ok) throw new Error(await readError(response));
-      setItems((await response.json()) as WatchlistItem[]);
-      setError("");
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "自选股加载失败。");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
+    let active = true;
+
+    fetch("/api/watchlist", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await readError(response));
+        return response.json() as Promise<WatchlistItem[]>;
+      })
+      .then((data) => {
+        if (!active) return;
+        setItems(data);
+        setError("");
+      })
+      .catch((requestError: unknown) => {
+        if (!active) return;
+        setError(requestError instanceof Error ? requestError.message : "自选股加载失败。");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const counts = useMemo(
     () => ({
