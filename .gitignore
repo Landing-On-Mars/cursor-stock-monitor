@@ -11,6 +11,7 @@ venv/
 .env.*.local
 
 # Build output
+.next/
 dist/
 build/
 *.log
