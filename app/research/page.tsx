@@ -1,5 +1,6 @@
 import { ExternalLink, FileText, Filter, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { MarketChart } from "@/components/market-chart";
+import { WatchlistManager } from "@/components/watchlist-manager";
 
 const notes = [
   ["NVIDIA FY2027 Q2 跟踪", "半导体 · 财报", "昨天"],
@@ -15,6 +16,7 @@ export default function ResearchPage() {
         <div><p className="eyebrow">Research Library</p><h1>个股研究</h1><p className="page-subtitle">对照行情、基本面指标与 Obsidian 研究笔记。</p></div>
         <div className="header-actions"><button className="btn"><ExternalLink size={14} />在 Obsidian 打开</button><button className="btn btn-primary"><Plus size={14} />新建笔记</button></div>
       </header>
+      <WatchlistManager />
       <div className="toolbar">
         <label className="search-field"><Search size={15} /><input placeholder="输入代码、公司或笔记关键词…" /></label>
         <button className="btn"><Filter size={14} />全部市场</button>
