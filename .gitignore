@@ -16,6 +16,7 @@ data/*.db-*
 
 # Build output
 .next/
+next-env.d.ts
 dist/
 build/
 *.log
