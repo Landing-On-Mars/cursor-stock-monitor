@@ -371,7 +371,7 @@ export function WatchlistManager() {
                       autoComplete="off"
                       autoFocus
                       onChange={(event) => searchStocks(event.target.value)}
-                      placeholder="例如 300308、Apple、腾讯"
+                      placeholder="例如 300308、AAPL、Tencent"
                       required
                       value={stockQuery}
                     />

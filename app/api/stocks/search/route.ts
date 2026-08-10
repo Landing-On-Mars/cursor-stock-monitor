@@ -60,6 +60,10 @@ export async function GET(request: NextRequest) {
       signal: AbortSignal.timeout(8_000),
     });
 
+    if (response.status === 400) {
+      return NextResponse.json([]);
+    }
+
     if (!response.ok) {
       throw new Error(`Yahoo Finance returned ${response.status}`);
     }
