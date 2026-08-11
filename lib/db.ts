@@ -9,6 +9,20 @@ const databasePath =
 
 fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 
+function ensureColumn(
+  database: Database.Database,
+  table: string,
+  column: string,
+  definition: string,
+) {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+    name: string;
+  }>;
+  if (!columns.some((entry) => entry.name === column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 function createDatabase() {
   const database = new Database(databasePath);
   database.pragma("journal_mode = WAL");
@@ -22,6 +36,13 @@ function createDatabase() {
       market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN')),
       category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH')),
       note TEXT NOT NULL DEFAULT '',
+      note_path TEXT NOT NULL DEFAULT '',
+      exchange TEXT NOT NULL DEFAULT '',
+      currency TEXT NOT NULL DEFAULT '',
+      industries TEXT NOT NULL DEFAULT '[]',
+      tags TEXT NOT NULL DEFAULT '[]',
+      thesis TEXT NOT NULL DEFAULT '',
+      article_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(symbol, market)
     );
@@ -32,26 +53,39 @@ function createDatabase() {
     );
   `);
 
-  const seeded = database
-    .prepare("SELECT value FROM app_meta WHERE key = 'watchlist_seeded'")
+  ensureColumn(database, "watchlist_items", "note_path", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(database, "watchlist_items", "exchange", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(database, "watchlist_items", "currency", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(database, "watchlist_items", "industries", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(database, "watchlist_items", "tags", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(database, "watchlist_items", "thesis", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(
+    database,
+    "watchlist_items",
+    "article_count",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+
+  // Drop legacy demo seed once; vault import becomes the source of truth.
+  const legacyCleared = database
+    .prepare("SELECT value FROM app_meta WHERE key = 'legacy_seed_cleared_v2'")
     .get();
 
-  if (!seeded) {
-    const seed = database.prepare(`
-      INSERT OR IGNORE INTO watchlist_items
-        (symbol, name, market, category, note)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
+  if (!legacyCleared) {
     database.transaction(() => {
-      seed.run("NVDA", "NVIDIA", "US", "CORE", "AI 算力核心跟踪标的");
-      seed.run("0700", "腾讯控股", "HK", "CORE", "游戏与广告业务恢复");
-      seed.run("600519", "贵州茅台", "CN", "WATCH", "等待渠道库存进一步改善");
       database
         .prepare(
-          "INSERT INTO app_meta (key, value) VALUES ('watchlist_seeded', '1')",
+          `DELETE FROM watchlist_items
+           WHERE symbol IN ('NVDA', '0700', '600519')
+             AND note_path = ''`,
         )
         .run();
+      database
+        .prepare(
+          "INSERT INTO app_meta (key, value) VALUES ('legacy_seed_cleared_v2', '1')",
+        )
+        .run();
+      database.prepare("DELETE FROM app_meta WHERE key = 'watchlist_seeded'").run();
     })();
   }
 

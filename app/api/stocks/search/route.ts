@@ -26,10 +26,19 @@ const exchangeMarkets: Record<string, Market> = {
   SHZ: "CN",
 };
 
-function normalizeSymbol(symbol: string, market: Market) {
-  if (market === "HK") return symbol.replace(/\.HK$/i, "");
-  if (market === "CN") return symbol.replace(/\.(SS|SZ)$/i, "");
-  return symbol;
+/** Keep Yahoo full symbols so Vault / articles can join on the same key. */
+function toYahooSymbol(symbol: string, market: Market, exchange?: string) {
+  const upper = symbol.toUpperCase();
+  if (market === "US") return upper.replace(/\.(US|NYSE|NASDAQ)$/i, "");
+  if (market === "HK") {
+    if (/\.HK$/i.test(upper)) return upper;
+    const digits = upper.replace(/\D/g, "");
+    return `${digits.padStart(4, "0")}.HK`;
+  }
+  if (/\.(SS|SZ)$/i.test(upper)) return upper;
+  if (exchange === "SHH") return `${upper.replace(/\D/g, "").padStart(6, "0")}.SS`;
+  if (exchange === "SHZ") return `${upper.replace(/\D/g, "").padStart(6, "0")}.SZ`;
+  return upper;
 }
 
 export async function GET(request: NextRequest) {
@@ -79,11 +88,17 @@ export async function GET(request: NextRequest) {
       )
       .map((quote) => {
         const market = exchangeMarkets[quote.exchange as string];
+        const yahooSymbol = toYahooSymbol(
+          quote.symbol as string,
+          market,
+          quote.exchange,
+        );
         return {
-          symbol: normalizeSymbol(quote.symbol as string, market),
-          yahooSymbol: quote.symbol,
+          symbol: yahooSymbol,
+          yahooSymbol,
           name: quote.longname || quote.shortname || quote.symbol,
           market,
+          exchange: quote.exchange,
         };
       });
 

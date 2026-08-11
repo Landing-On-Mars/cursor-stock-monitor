@@ -1,48 +1,18 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import {
+  insertWatchlistItem,
+  listWatchlistItems,
+} from "@/lib/watchlist-store";
 import {
   MARKETS,
   WATCHLIST_CATEGORIES,
   type CreateWatchlistItem,
-  type Market,
-  type WatchlistCategory,
-  type WatchlistItem,
 } from "@/lib/watchlist-types";
 
 export const dynamic = "force-dynamic";
 
-type WatchlistRow = {
-  id: number;
-  symbol: string;
-  name: string;
-  market: Market;
-  category: WatchlistCategory;
-  note: string;
-  created_at: string;
-};
-
-function toWatchlistItem(row: WatchlistRow): WatchlistItem {
-  return {
-    id: row.id,
-    symbol: row.symbol,
-    name: row.name,
-    market: row.market,
-    category: row.category,
-    note: row.note,
-    createdAt: row.created_at,
-  };
-}
-
 export async function GET() {
-  const rows = db
-    .prepare(
-      `SELECT id, symbol, name, market, category, note, created_at
-       FROM watchlist_items
-       ORDER BY category ASC, created_at ASC`,
-    )
-    .all() as WatchlistRow[];
-
-  return NextResponse.json(rows.map(toWatchlistItem));
+  return NextResponse.json(listWatchlistItems());
 }
 
 export async function POST(request: Request) {
@@ -71,21 +41,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = db
-      .prepare(
-        `INSERT INTO watchlist_items (symbol, name, market, category, note)
-         VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(symbol, name, body.market, body.category, note);
+    const item = insertWatchlistItem({
+      symbol,
+      name,
+      market: body.market,
+      category: body.category,
+      note,
+      notePath: body.notePath,
+      exchange: body.exchange,
+      currency: body.currency,
+      industries: body.industries,
+      tags: body.tags,
+      thesis: body.thesis,
+      articleCount: body.articleCount,
+    });
 
-    const row = db
-      .prepare(
-        `SELECT id, symbol, name, market, category, note, created_at
-         FROM watchlist_items WHERE id = ?`,
-      )
-      .get(result.lastInsertRowid) as WatchlistRow;
-
-    return NextResponse.json(toWatchlistItem(row), { status: 201 });
+    return NextResponse.json(item, { status: 201 });
   } catch (error) {
     if (
       error instanceof Error &&

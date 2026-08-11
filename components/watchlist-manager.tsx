@@ -3,6 +3,8 @@
 import {
   ArrowRightLeft,
   Check,
+  Download,
+  FileText,
   LoaderCircle,
   Plus,
   Search,
@@ -43,6 +45,8 @@ type StockSearchResult = {
   market: Market;
 };
 
+type MarketFilter = "ALL" | Market;
+
 const emptyForm: FormState = {
   symbol: "",
   name: "",
@@ -56,15 +60,28 @@ async function readError(response: Response) {
   return body?.error ?? "操作失败，请稍后重试。";
 }
 
-export function WatchlistManager() {
+type WatchlistManagerProps = {
+  selectedId?: number | null;
+  onSelect?: (item: WatchlistItem) => void;
+  onItemsChange?: (items: WatchlistItem[]) => void;
+};
+
+export function WatchlistManager({
+  selectedId = null,
+  onSelect,
+  onItemsChange,
+}: WatchlistManagerProps) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
-  const [category, setCategory] = useState<WatchlistCategory>("CORE");
+  const [category, setCategory] = useState<WatchlistCategory | "ALL">("ALL");
+  const [market, setMarket] = useState<MarketFilter>("ALL");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [importing, setImporting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [form, setForm] = useState<FormState>(emptyForm);
   const [stockQuery, setStockQuery] = useState("");
   const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
@@ -72,6 +89,11 @@ export function WatchlistManager() {
   const [searchError, setSearchError] = useState("");
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequest = useRef(0);
+
+  function applyItems(next: WatchlistItem[]) {
+    setItems(next);
+    onItemsChange?.(next);
+  }
 
   useEffect(() => {
     let active = true;
@@ -83,7 +105,7 @@ export function WatchlistManager() {
       })
       .then((data) => {
         if (!active) return;
-        setItems(data);
+        applyItems(data);
         setError("");
       })
       .catch((requestError: unknown) => {
@@ -97,6 +119,7 @@ export function WatchlistManager() {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(
@@ -108,25 +131,35 @@ export function WatchlistManager() {
 
   const counts = useMemo(
     () => ({
+      ALL: items.length,
       CORE: items.filter((item) => item.category === "CORE").length,
       WATCH: items.filter((item) => item.category === "WATCH").length,
+      HK: items.filter((item) => item.market === "HK").length,
+      CN: items.filter((item) => item.market === "CN").length,
+      US: items.filter((item) => item.market === "US").length,
     }),
     [items],
   );
 
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return items.filter(
-      (item) =>
-        item.category === category &&
-        (!normalizedQuery ||
-          item.symbol.toLowerCase().includes(normalizedQuery) ||
-          item.name.toLowerCase().includes(normalizedQuery)),
-    );
-  }, [category, items, query]);
+    return items.filter((item) => {
+      if (category !== "ALL" && item.category !== category) return false;
+      if (market !== "ALL" && item.market !== market) return false;
+      if (!normalizedQuery) return true;
+      return (
+        item.symbol.toLowerCase().includes(normalizedQuery) ||
+        item.name.toLowerCase().includes(normalizedQuery) ||
+        item.industries.some((entry) => entry.toLowerCase().includes(normalizedQuery))
+      );
+    });
+  }, [category, items, market, query]);
 
   function openCreateForm() {
-    setForm({ ...emptyForm, category });
+    setForm({
+      ...emptyForm,
+      category: category === "ALL" ? "WATCH" : category,
+    });
     setStockQuery("");
     setSearchResults([]);
     setSearchError("");
@@ -187,6 +220,37 @@ export function WatchlistManager() {
     setSearchError("");
   }
 
+  async function importFromVault() {
+    setImporting(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/vault/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replace: true }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+
+      const payload = (await response.json()) as {
+        imported: number;
+        core: number;
+        watch: number;
+        items: WatchlistItem[];
+      };
+      applyItems(payload.items);
+      setNotice(
+        `已从 Vault 导入 ${payload.imported} 只（核心 ${payload.core} · 观察 ${payload.watch}）`,
+      );
+      if (payload.items[0]) onSelect?.(payload.items[0]);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Vault 导入失败。");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function createItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
@@ -201,9 +265,10 @@ export function WatchlistManager() {
       if (!response.ok) throw new Error(await readError(response));
 
       const item = (await response.json()) as WatchlistItem;
-      setItems((current) => [...current, item]);
+      applyItems([...items, item]);
       setCategory(item.category);
       setModalOpen(false);
+      onSelect?.(item);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "添加失败。");
     } finally {
@@ -225,8 +290,8 @@ export function WatchlistManager() {
       });
       if (!response.ok) throw new Error(await readError(response));
 
-      setItems((current) =>
-        current.map((entry) =>
+      applyItems(
+        items.map((entry) =>
           entry.id === item.id ? { ...entry, category: nextCategory } : entry,
         ),
       );
@@ -250,7 +315,7 @@ export function WatchlistManager() {
         method: "DELETE",
       });
       if (!response.ok) throw new Error(await readError(response));
-      setItems((current) => current.filter((entry) => entry.id !== item.id));
+      applyItems(items.filter((entry) => entry.id !== item.id));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "删除失败。");
     } finally {
@@ -263,24 +328,42 @@ export function WatchlistManager() {
       <section className="card watchlist-manager">
         <div className="card-head">
           <div>
-            <h2>我的自选股</h2>
-            <p>核心标的重点跟踪，观察标的等待条件成熟</p>
+            <h2>Vault 自选股</h2>
+            <p>紧凑列表 · 核心 / 观察 · 文章关联计数</p>
           </div>
-          <button className="btn btn-primary" onClick={openCreateForm}>
-            <Plus size={14} />添加股票
-          </button>
+          <div className="watchlist-head-actions">
+            <button className="btn" disabled={importing} onClick={() => void importFromVault()}>
+              {importing ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}
+              {importing ? "导入中…" : "从 Vault 导入"}
+            </button>
+            <button className="btn btn-primary" onClick={openCreateForm}>
+              <Plus size={14} />添加
+            </button>
+          </div>
         </div>
 
-        <div className="watchlist-controls">
+        <div className="watchlist-controls compact-controls">
           <div className="segment-control">
-            {(["CORE", "WATCH"] as const).map((value) => (
+            {(["ALL", "CORE", "WATCH"] as const).map((value) => (
               <button
                 className={category === value ? "active" : ""}
                 key={value}
                 onClick={() => setCategory(value)}
               >
                 {value === "CORE" && <Star size={13} />}
-                {categoryText[value]}
+                {value === "ALL" ? "全部" : categoryText[value]}
+                <span>{counts[value]}</span>
+              </button>
+            ))}
+          </div>
+          <div className="segment-control">
+            {(["ALL", "HK", "CN", "US"] as const).map((value) => (
+              <button
+                className={market === value ? "active" : ""}
+                key={value}
+                onClick={() => setMarket(value)}
+              >
+                {value === "ALL" ? "市场" : marketText[value]}
                 <span>{counts[value]}</span>
               </button>
             ))}
@@ -289,60 +372,86 @@ export function WatchlistManager() {
             <Search size={14} />
             <input
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索代码或名称"
+              placeholder="代码 / 名称 / 行业"
               value={query}
             />
           </label>
         </div>
 
+        {notice && !modalOpen && <div className="inline-notice">{notice}</div>}
         {error && !modalOpen && <div className="inline-error">{error}</div>}
 
-        <div className="managed-watchlist">
+        <div className="dense-watchlist-head" aria-hidden>
+          <span>市场</span>
+          <span>代码</span>
+          <span>名称</span>
+          <span>分组</span>
+          <span>文章</span>
+          <span />
+        </div>
+
+        <div className="dense-watchlist">
           {loading ? (
             <div className="watchlist-empty">正在加载自选股…</div>
           ) : visibleItems.length === 0 ? (
             <div className="watchlist-empty">
               <Star size={20} />
-              <strong>这个分组还没有股票</strong>
-              <span>添加一只股票，开始建立你的研究列表。</span>
+              <strong>还没有可显示的股票</strong>
+              <span>先从 Vault 导入 75 只标的，或手动添加一只。</span>
             </div>
           ) : (
             visibleItems.map((item) => (
-              <div className="managed-watch-row" key={item.id}>
+              <button
+                className={`dense-watch-row ${selectedId === item.id ? "selected" : ""}`}
+                key={item.id}
+                onClick={() => onSelect?.(item)}
+                type="button"
+              >
                 <span className={`market-icon market-${item.market.toLowerCase()}`}>
                   {item.market}
                 </span>
-                <div className="managed-watch-symbol">
-                  <strong>{item.symbol}</strong>
-                  <span>{marketText[item.market]}</span>
-                </div>
-                <div className="managed-watch-name">
+                <strong className="dense-symbol">{item.symbol}</strong>
+                <span className="dense-name">
                   <strong>{item.name}</strong>
-                  <span>{item.note || "暂未添加跟踪备注"}</span>
-                </div>
-                <span className={`watch-category watch-category-${item.category.toLowerCase()}`}>
+                  <small>
+                    {(item.industries[0] || item.exchange || marketText[item.market]) +
+                      (item.thesis ? ` · ${item.thesis.slice(0, 36)}` : "")}
+                  </small>
+                </span>
+                <span
+                  className={`watch-category watch-category-${item.category.toLowerCase()}`}
+                >
                   {categoryText[item.category]}
                 </span>
-                <div className="row-actions">
+                <span className="dense-articles">
+                  <FileText size={12} />
+                  {item.articleCount}
+                </span>
+                <span
+                  className="row-actions"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
                   <button
                     className="move-action"
                     disabled={busyId === item.id}
                     onClick={() => void moveItem(item)}
                     title={`移动到${categoryText[item.category === "CORE" ? "WATCH" : "CORE"]}`}
+                    type="button"
                   >
-                    <ArrowRightLeft size={14} />
-                    <span>移至{categoryText[item.category === "CORE" ? "WATCH" : "CORE"]}</span>
+                    <ArrowRightLeft size={13} />
                   </button>
                   <button
                     className="danger-action"
                     disabled={busyId === item.id}
                     onClick={() => void deleteItem(item)}
                     title="删除"
+                    type="button"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={13} />
                   </button>
-                </div>
-              </div>
+                </span>
+              </button>
             ))
           )}
         </div>
@@ -358,15 +467,26 @@ export function WatchlistManager() {
             role="dialog"
           >
             <div className="modal-head">
-              <div><h2 id="add-stock-title">添加自选股</h2><p>搜索结果来自 Yahoo Finance</p></div>
-              <button onClick={() => setModalOpen(false)} aria-label="关闭"><X size={18} /></button>
+              <div>
+                <h2 id="add-stock-title">添加自选股</h2>
+                <p>搜索结果使用 Yahoo 完整代码，便于与 Vault 文章对齐</p>
+              </div>
+              <button onClick={() => setModalOpen(false)} aria-label="关闭">
+                <X size={18} />
+              </button>
             </div>
             <form onSubmit={createItem}>
               <div className="form-grid">
                 <div className="field field-full stock-picker">
                   <span>搜索股票代码或公司名称</span>
                   <div className={`stock-search-input ${form.symbol ? "selected" : ""}`}>
-                    {searching ? <LoaderCircle className="spin" size={15} /> : form.symbol ? <Check size={15} /> : <Search size={15} />}
+                    {searching ? (
+                      <LoaderCircle className="spin" size={15} />
+                    ) : form.symbol ? (
+                      <Check size={15} />
+                    ) : (
+                      <Search size={15} />
+                    )}
                     <input
                       autoComplete="off"
                       autoFocus
@@ -384,8 +504,13 @@ export function WatchlistManager() {
                           onClick={() => selectStock(result)}
                           type="button"
                         >
-                          <span className={`market-icon market-${result.market.toLowerCase()}`}>{result.market}</span>
-                          <span className="stock-result-main"><strong>{result.name}</strong><small>{result.yahooSymbol}</small></span>
+                          <span className={`market-icon market-${result.market.toLowerCase()}`}>
+                            {result.market}
+                          </span>
+                          <span className="stock-result-main">
+                            <strong>{result.name}</strong>
+                            <small>{result.yahooSymbol}</small>
+                          </span>
                           <span className="stock-result-market">{marketText[result.market]}</span>
                         </button>
                       ))}
@@ -402,7 +527,9 @@ export function WatchlistManager() {
                 <label className="field">
                   <span>分组</span>
                   <select
-                    onChange={(event) => setForm({ ...form, category: event.target.value as WatchlistCategory })}
+                    onChange={(event) =>
+                      setForm({ ...form, category: event.target.value as WatchlistCategory })
+                    }
                     value={form.category}
                   >
                     <option value="CORE">核心</option>
@@ -421,8 +548,14 @@ export function WatchlistManager() {
               </div>
               {error && <div className="inline-error">{error}</div>}
               <div className="modal-actions">
-                <button className="btn" onClick={() => setModalOpen(false)} type="button">取消</button>
-                <button className="btn btn-primary" disabled={submitting || !form.symbol} type="submit">
+                <button className="btn" onClick={() => setModalOpen(false)} type="button">
+                  取消
+                </button>
+                <button
+                  className="btn btn-primary"
+                  disabled={submitting || !form.symbol}
+                  type="submit"
+                >
                   {submitting ? "正在添加…" : "添加到自选股"}
                 </button>
               </div>

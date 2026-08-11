@@ -11,7 +11,27 @@ export type WatchlistItem = {
   market: Market;
   category: WatchlistCategory;
   note: string;
+  notePath: string;
+  exchange: string;
+  currency: string;
+  industries: string[];
+  tags: string[];
+  thesis: string;
+  articleCount: number;
   createdAt: string;
 };
 
-export type CreateWatchlistItem = Omit<WatchlistItem, "id" | "createdAt">;
+export type CreateWatchlistItem = {
+  symbol: string;
+  name: string;
+  market: Market;
+  category: WatchlistCategory;
+  note?: string;
+  notePath?: string;
+  exchange?: string;
+  currency?: string;
+  industries?: string[];
+  tags?: string[];
+  thesis?: string;
+  articleCount?: number;
+};
