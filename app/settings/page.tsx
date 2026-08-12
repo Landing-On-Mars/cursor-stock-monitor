@@ -16,6 +16,7 @@ type VaultStatus = {
   stockCount?: number;
   coreCount?: number;
   watchCount?: number;
+  archiveCount?: number;
   watchlistCount?: number;
   uniqueArticleSymbols?: number;
   error?: string;
@@ -111,10 +112,11 @@ export default function SettingsPage() {
         imported: number;
         core: number;
         watch: number;
+        archive: number;
       };
       await refreshStatus();
       setMessage(
-        `已导入 ${payload.imported} 只股票（核心 ${payload.core} · 观察 ${payload.watch}）。`,
+        `已导入 ${payload.imported} 只股票（核心 ${payload.core} · 观察 ${payload.watch} · 归档 ${payload.archive}）。`,
       );
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "导入失败");
@@ -163,9 +165,10 @@ export default function SettingsPage() {
                 <strong>{status?.stockCount ?? 0}</strong>
               </div>
               <div className="metric">
-                <small>核心 / 观察</small>
+                <small>核心 / 观察 / 归档</small>
                 <strong>
-                  {status?.coreCount ?? 0} / {status?.watchCount ?? 0}
+                  {status?.coreCount ?? 0} / {status?.watchCount ?? 0} /{" "}
+                  {status?.archiveCount ?? 0}
                 </strong>
               </div>
               <div className="metric">

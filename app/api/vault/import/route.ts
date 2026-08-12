@@ -34,6 +34,7 @@ export async function GET() {
       watchlistCount: listWatchlistItems().length,
       coreCount: stocks.filter((stock) => stock.category === "CORE").length,
       watchCount: stocks.filter((stock) => stock.category === "WATCH").length,
+      archiveCount: stocks.filter((stock) => stock.category === "ARCHIVE").length,
     });
   } catch (error) {
     return NextResponse.json(
@@ -104,6 +105,7 @@ export async function POST(request: Request) {
       imported: stocks.length,
       core: items.filter((item) => item.category === "CORE").length,
       watch: items.filter((item) => item.category === "WATCH").length,
+      archive: items.filter((item) => item.category === "ARCHIVE").length,
       items,
     });
   } catch (error) {
