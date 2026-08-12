@@ -448,30 +448,29 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   display: flex;
   flex-direction: column;
   max-height: min(96vh, 1200px);
-  max-width: min(1400px, calc(100vw - 64px));
+  max-width: none;
   overflow: hidden;
-  width: min(1400px, calc(100vw - 64px));
+  width: min(1680px, calc(100vw - 40px));
 }
 .modal.article-reader-modal .modal-head {
   gap: 16px;
-  padding: 22px clamp(24px, 3vw, 40px) 18px;
+  padding: 22px clamp(28px, 3.5vw, 52px) 18px;
 }
 .modal.article-reader-modal .modal-head h2 {
-  font-size: clamp(22px, 2.4vw, 30px);
+  font-size: clamp(24px, 2.6vw, 34px);
   letter-spacing: -0.03em;
   line-height: 1.25;
   margin: 0;
 }
 .modal.article-reader-modal .modal-head > div > p {
   color: var(--muted);
-  font-size: clamp(13px, 1.15vw, 15px);
+  font-size: clamp(14px, 1.2vw, 16px);
   line-height: 1.5;
   margin: 8px 0 0;
 }
 @media (max-width: 900px) {
   .modal.article-reader-modal {
-    max-width: calc(100vw - 20px);
-    width: calc(100vw - 20px);
+    width: calc(100vw - 16px);
   }
 }
 .modal-head { align-items: flex-start; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 18px 20px; }
