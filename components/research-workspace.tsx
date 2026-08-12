@@ -16,12 +16,6 @@ import type { WatchlistItem } from "@/lib/watchlist-types";
 
 type VaultArticle = ArticleSummary;
 
-const marketLabel = {
-  US: "美股",
-  HK: "港股",
-  CN: "A股",
-} as const;
-
 async function readError(response: Response) {
   const body = (await response.json().catch(() => null)) as { error?: string } | null;
   return body?.error ?? "请求失败";
@@ -128,15 +122,7 @@ export function ResearchWorkspace({
               <article className="card research-hero">
                 <div className="ticker-head">
                   <div className="ticker-title">
-                    <span className="ticker-badge">{selected.market}</span>
-                    <div>
-                      <h2>{selected.name}</h2>
-                      <p>
-                        {selected.exchange || selected.market} · {selected.symbol} ·{" "}
-                        {marketLabel[selected.market]}
-                        {selected.currency ? ` · ${selected.currency}` : ""}
-                      </p>
-                    </div>
+                    <h2>{selected.name}</h2>
                   </div>
                   <div className="row-value" style={{ fontSize: 13, textAlign: "right" }}>
                     <span className={`watch-category watch-category-${selected.category.toLowerCase()}`}>
@@ -152,20 +138,9 @@ export function ResearchWorkspace({
                   </div>
                 </div>
 
-                <div className="metric-row">
-                  {(selected.industries.length ? selected.industries : ["未标注行业"])
-                    .slice(0, 4)
-                    .map((industry) => (
-                      <div className="metric" key={industry}>
-                        <small>行业</small>
-                        <strong>{industry}</strong>
-                      </div>
-                    ))}
-                </div>
-
                 <div
                   className="card-head"
-                  style={{ padding: "12px 0", borderTop: "1px solid var(--line)" }}
+                  style={{ padding: "12px 0", borderTop: "1px solid var(--line)", marginTop: 14 }}
                 >
                   <div>
                     <h2>日线走势</h2>
