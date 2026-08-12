@@ -366,6 +366,17 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .dense-watch-row .watch-category { justify-self: start; padding: 2px 6px; }
 .dense-watch-row .row-actions { justify-self: end; }
 .dense-watch-row .row-actions button { height: 24px; width: 24px; }
+.category-select {
+  appearance: auto;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 52px;
+  outline: 0;
+}
+.category-select:hover,
+.category-select:focus { border-color: currentColor; }
+.category-select:disabled { cursor: wait; opacity: .55; }
 .inline-notice {
   align-items: center;
   background: var(--green-soft);

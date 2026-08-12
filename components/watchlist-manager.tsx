@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowRightLeft,
   Check,
   Download,
   FileText,
@@ -278,13 +277,12 @@ export function WatchlistManager({
     }
   }
 
-  async function moveItem(item: WatchlistItem) {
-    const nextCategory: WatchlistCategory =
-      item.category === "CORE"
-        ? "WATCH"
-        : item.category === "WATCH"
-          ? "LOW_FREQUENCY"
-          : "CORE";
+  async function changeCategory(
+    item: WatchlistItem,
+    nextCategory: WatchlistCategory,
+  ) {
+    if (nextCategory === item.category) return;
+
     setBusyId(item.id);
     setError("");
 
@@ -302,7 +300,7 @@ export function WatchlistManager({
         ),
       );
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "移动失败。");
+      setError(requestError instanceof Error ? requestError.message : "分组更新失败。");
     } finally {
       setBusyId(null);
     }
@@ -407,11 +405,18 @@ export function WatchlistManager({
             </div>
           ) : (
             visibleItems.map((item) => (
-              <button
+              <div
                 className={`dense-watch-row ${selectedId === item.id ? "selected" : ""}`}
                 key={item.id}
                 onClick={() => onSelect?.(item)}
-                type="button"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect?.(item);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
                 <span className={`market-icon market-${item.market.toLowerCase()}`}>
                   {item.market}
@@ -424,11 +429,26 @@ export function WatchlistManager({
                       (item.thesis ? ` · ${item.thesis.slice(0, 36)}` : "")}
                   </small>
                 </span>
-                <span
-                  className={`watch-category watch-category-${item.category.toLowerCase()}`}
+                <select
+                  aria-label={`${item.name} 的分组`}
+                  className={`watch-category category-select watch-category-${item.category.toLowerCase()}`}
+                  disabled={busyId === item.id}
+                  onChange={(event) =>
+                    void changeCategory(
+                      item,
+                      event.target.value as WatchlistCategory,
+                    )
+                  }
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  value={item.category}
                 >
-                  {categoryText[item.category]}
-                </span>
+                  {(["CORE", "WATCH", "LOW_FREQUENCY"] as const).map((value) => (
+                    <option key={value} value={value}>
+                      {categoryText[value]}
+                    </option>
+                  ))}
+                </select>
                 <span className="dense-articles">
                   <FileText size={12} />
                   {item.articleCount}
@@ -439,23 +459,6 @@ export function WatchlistManager({
                   onKeyDown={(event) => event.stopPropagation()}
                 >
                   <button
-                    className="move-action"
-                    disabled={busyId === item.id}
-                    onClick={() => void moveItem(item)}
-                    title={`移动到${
-                      categoryText[
-                        item.category === "CORE"
-                          ? "WATCH"
-                          : item.category === "WATCH"
-                            ? "LOW_FREQUENCY"
-                            : "CORE"
-                      ]
-                    }`}
-                    type="button"
-                  >
-                    <ArrowRightLeft size={13} />
-                  </button>
-                  <button
                     className="danger-action"
                     disabled={busyId === item.id}
                     onClick={() => void deleteItem(item)}
@@ -465,7 +468,7 @@ export function WatchlistManager({
                     <Trash2 size={13} />
                   </button>
                 </span>
-              </button>
+              </div>
             ))
           )}
         </div>
