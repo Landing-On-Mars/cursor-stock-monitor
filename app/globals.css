@@ -444,6 +444,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .watch-category { border-radius: 12px; font-size: 9px; justify-self: start; padding: 4px 8px; }
 .watch-category-core { background: var(--green-soft); color: var(--green); }
 .watch-category-watch { background: var(--amber-soft); color: var(--amber); }
+.watch-category-low_frequency { background: #eef0f2; color: #65707a; }
 .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
 .row-actions button, .modal-head button {
   align-items: center;
@@ -497,36 +498,37 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .modal.article-reader-modal {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 24px);
-  max-height: calc(100vh - 24px);
+  max-height: min(88vh, 920px);
   max-width: none;
   overflow: hidden;
-  width: calc(100vw - 24px);
+  width: min(980px, calc(100vw - 96px));
 }
 .modal.article-reader-modal .modal-head {
   gap: 16px;
-  padding: 18px clamp(20px, 2.8vw, 40px) 16px;
+  padding: 18px clamp(24px, 3vw, 40px) 14px;
 }
 .modal.article-reader-modal .modal-head h2 {
-  font-size: clamp(24px, 2.2vw + 12px, 34px);
+  font-size: clamp(20px, 1.4vw + 12px, 26px);
   letter-spacing: -0.03em;
   line-height: 1.25;
   margin: 0;
 }
 .modal.article-reader-modal .modal-head > div > p {
   color: var(--muted);
-  font-size: clamp(14px, 0.4vw + 12px, 16px);
+  font-size: clamp(12px, 0.3vw + 11px, 14px);
   line-height: 1.5;
   margin: 8px 0 0;
 }
 @media (max-width: 900px) {
   .modal.article-reader-modal {
-    height: calc(100vh - 16px);
-    max-height: calc(100vh - 16px);
-    width: calc(100vw - 16px);
+    max-height: calc(100vh - 32px);
+    width: calc(100vw - 32px);
   }
   .article-reader-backdrop {
-    padding: 8px;
+    padding: 16px;
+  }
+  .article-markdown {
+    max-width: none;
   }
 }
 .modal-head { align-items: flex-start; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 18px 20px; }

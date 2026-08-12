@@ -22,6 +22,7 @@ import {
 const categoryText: Record<WatchlistCategory, string> = {
   CORE: "核心",
   WATCH: "观察",
+  LOW_FREQUENCY: "低频",
 };
 
 const marketText: Record<Market, string> = {
@@ -72,7 +73,7 @@ export function WatchlistManager({
   onItemsChange,
 }: WatchlistManagerProps) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
-  const [category, setCategory] = useState<WatchlistCategory | "ALL">("ALL");
+  const [category, setCategory] = useState<WatchlistCategory>("CORE");
   const [market, setMarket] = useState<MarketFilter>("ALL");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -134,6 +135,7 @@ export function WatchlistManager({
       ALL: items.length,
       CORE: items.filter((item) => item.category === "CORE").length,
       WATCH: items.filter((item) => item.category === "WATCH").length,
+      LOW_FREQUENCY: items.filter((item) => item.category === "LOW_FREQUENCY").length,
       HK: items.filter((item) => item.market === "HK").length,
       CN: items.filter((item) => item.market === "CN").length,
       US: items.filter((item) => item.market === "US").length,
@@ -144,7 +146,7 @@ export function WatchlistManager({
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return items.filter((item) => {
-      if (category !== "ALL" && item.category !== category) return false;
+      if (item.category !== category) return false;
       if (market !== "ALL" && item.market !== market) return false;
       if (!normalizedQuery) return true;
       return (
@@ -158,7 +160,7 @@ export function WatchlistManager({
   function openCreateForm() {
     setForm({
       ...emptyForm,
-      category: category === "ALL" ? "WATCH" : category,
+      category,
     });
     setStockQuery("");
     setSearchResults([]);
@@ -229,7 +231,7 @@ export function WatchlistManager({
       const response = await fetch("/api/vault/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ replace: true }),
+        body: JSON.stringify({ replace: false }),
       });
       if (!response.ok) throw new Error(await readError(response));
 
@@ -278,7 +280,11 @@ export function WatchlistManager({
 
   async function moveItem(item: WatchlistItem) {
     const nextCategory: WatchlistCategory =
-      item.category === "CORE" ? "WATCH" : "CORE";
+      item.category === "CORE"
+        ? "WATCH"
+        : item.category === "WATCH"
+          ? "LOW_FREQUENCY"
+          : "CORE";
     setBusyId(item.id);
     setError("");
 
@@ -329,7 +335,7 @@ export function WatchlistManager({
         <div className="card-head">
           <div>
             <h2>Vault 自选股</h2>
-            <p>紧凑列表 · 核心 / 观察 · 文章关联计数</p>
+            <p>紧凑列表 · 核心 / 观察 / 低频 · 文章关联计数</p>
           </div>
           <div className="watchlist-head-actions">
             <button className="btn" disabled={importing} onClick={() => void importFromVault()}>
@@ -344,14 +350,14 @@ export function WatchlistManager({
 
         <div className="watchlist-controls compact-controls">
           <div className="segment-control">
-            {(["ALL", "CORE", "WATCH"] as const).map((value) => (
+            {(["CORE", "WATCH", "LOW_FREQUENCY"] as const).map((value) => (
               <button
                 className={category === value ? "active" : ""}
                 key={value}
                 onClick={() => setCategory(value)}
               >
                 {value === "CORE" && <Star size={13} />}
-                {value === "ALL" ? "全部" : categoryText[value]}
+                {categoryText[value]}
                 <span>{counts[value]}</span>
               </button>
             ))}
@@ -436,7 +442,15 @@ export function WatchlistManager({
                     className="move-action"
                     disabled={busyId === item.id}
                     onClick={() => void moveItem(item)}
-                    title={`移动到${categoryText[item.category === "CORE" ? "WATCH" : "CORE"]}`}
+                    title={`移动到${
+                      categoryText[
+                        item.category === "CORE"
+                          ? "WATCH"
+                          : item.category === "WATCH"
+                            ? "LOW_FREQUENCY"
+                            : "CORE"
+                      ]
+                    }`}
                     type="button"
                   >
                     <ArrowRightLeft size={13} />
@@ -534,6 +548,7 @@ export function WatchlistManager({
                   >
                     <option value="CORE">核心</option>
                     <option value="WATCH">观察</option>
+                    <option value="LOW_FREQUENCY">低频</option>
                   </select>
                 </label>
                 <label className="field field-full">

@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   }
 
   if (!body.category || !WATCHLIST_CATEGORIES.includes(body.category)) {
-    return NextResponse.json({ error: "请选择核心或观察分组。" }, { status: 400 });
+    return NextResponse.json({ error: "请选择核心、观察或低频分组。" }, { status: 400 });
   }
 
   try {

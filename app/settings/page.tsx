@@ -104,7 +104,7 @@ export default function SettingsPage() {
       const response = await fetch("/api/vault/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ replace: true }),
+        body: JSON.stringify({ replace: false }),
       });
       if (!response.ok) throw new Error(await readError(response));
       const payload = (await response.json()) as {

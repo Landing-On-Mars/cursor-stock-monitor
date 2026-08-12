@@ -58,7 +58,12 @@ export function listWatchlistItems() {
               currency, industries, tags, thesis, article_count, created_at
        FROM watchlist_items
        ORDER BY
-         CASE category WHEN 'CORE' THEN 0 ELSE 1 END,
+         CASE category
+           WHEN 'CORE' THEN 0
+           WHEN 'WATCH' THEN 1
+           WHEN 'LOW_FREQUENCY' THEN 2
+           ELSE 3
+         END,
          CASE market WHEN 'HK' THEN 0 WHEN 'CN' THEN 1 ELSE 2 END,
          symbol ASC`,
     )
@@ -112,7 +117,6 @@ export function upsertVaultWatchlistItem(item: CreateWatchlistItem) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(symbol, market) DO UPDATE SET
        name = excluded.name,
-       category = excluded.category,
        note = excluded.note,
        note_path = excluded.note_path,
        exchange = excluded.exchange,

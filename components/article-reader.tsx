@@ -93,7 +93,7 @@ function MarkdownText({ value }: { value: string }) {
           return <hr className="article-hr" key={`hr-${index}`} />;
         }
 
-        const heading = trimmed.match(/^(#{1,3})\s+(.+)$/s);
+        const heading = trimmed.match(/^(#{1,3})\s+([\s\S]+)$/);
         if (heading) {
           const level = heading[1].length;
           const text = heading[2].replace(/\n/g, " ");

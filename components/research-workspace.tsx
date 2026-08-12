@@ -4,8 +4,6 @@ import {
   ExternalLink,
   FileText,
   LoaderCircle,
-  Search,
-  SlidersHorizontal,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -42,7 +40,6 @@ export function ResearchWorkspace({
     articles: VaultArticle[];
     error: string;
   } | null>(null);
-  const [filter, setFilter] = useState("");
   const [preferSymbol] = useState(initialSymbol);
   const [openedArticle, setOpenedArticle] = useState<VaultArticle | null>(null);
 
@@ -85,17 +82,8 @@ export function ResearchWorkspace({
 
   const visibleArticles = useMemo(() => {
     if (!selected) return [];
-    const query = filter.trim().toLowerCase();
-    const source =
-      articleBundle?.symbol === selected.symbol ? articleBundle.articles : [];
-    if (!query) return source;
-    return source.filter(
-      (article) =>
-        article.title.toLowerCase().includes(query) ||
-        article.tags.some((tag) => tag.toLowerCase().includes(query)) ||
-        article.source.toLowerCase().includes(query),
-    );
-  }, [articleBundle, filter, selected]);
+    return articleBundle?.symbol === selected.symbol ? articleBundle.articles : [];
+  }, [articleBundle, selected]);
 
   function pickInitialItem(items: WatchlistItem[]) {
     if (items.length === 0) return null;
@@ -135,21 +123,6 @@ export function ResearchWorkspace({
         </section>
       ) : (
         <>
-          <div className="toolbar">
-            <label className="search-field">
-              <Search size={15} />
-              <input
-                onChange={(event) => setFilter(event.target.value)}
-                placeholder="筛选关联文章标题或标签…"
-                value={filter}
-              />
-            </label>
-            <button className="btn">
-              <SlidersHorizontal size={14} />
-              {marketLabel[selected.market]}
-            </button>
-          </div>
-
           <section className="content-grid">
             <div className="stack">
               <article className="card research-hero">
@@ -167,7 +140,11 @@ export function ResearchWorkspace({
                   </div>
                   <div className="row-value" style={{ fontSize: 13, textAlign: "right" }}>
                     <span className={`watch-category watch-category-${selected.category.toLowerCase()}`}>
-                      {selected.category === "CORE" ? "核心" : "观察"}
+                      {selected.category === "CORE"
+                        ? "核心"
+                        : selected.category === "WATCH"
+                          ? "观察"
+                          : "低频"}
                     </span>
                     <small style={{ display: "block", marginTop: 8 }}>
                       关联文章 {selected.articleCount} 篇
@@ -260,8 +237,7 @@ export function ResearchWorkspace({
                       <strong>{article.title}</strong>
                       <small>
                         {(article.publishedAt || article.savedAt || "未知日期") +
-                          (article.source ? ` · ${article.source}` : "") +
-                          (article.tags[0] ? ` · ${article.tags[0]}` : "")}
+                          (article.source ? ` · ${article.source}` : "")}
                       </small>
                     </div>
                     <span title="打开文章">

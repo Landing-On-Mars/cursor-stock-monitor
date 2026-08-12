@@ -23,6 +23,50 @@ function ensureColumn(
   }
 }
 
+function migrateWatchlistCategories(database: Database.Database) {
+  const table = database
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'watchlist_items'",
+    )
+    .get() as { sql?: string } | undefined;
+
+  if (!table?.sql || table.sql.includes("LOW_FREQUENCY")) return;
+
+  database.transaction(() => {
+    database.exec(`
+      CREATE TABLE watchlist_items_next (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        symbol TEXT NOT NULL COLLATE NOCASE,
+        name TEXT NOT NULL,
+        market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN')),
+        category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'LOW_FREQUENCY')),
+        note TEXT NOT NULL DEFAULT '',
+        note_path TEXT NOT NULL DEFAULT '',
+        exchange TEXT NOT NULL DEFAULT '',
+        currency TEXT NOT NULL DEFAULT '',
+        industries TEXT NOT NULL DEFAULT '[]',
+        tags TEXT NOT NULL DEFAULT '[]',
+        thesis TEXT NOT NULL DEFAULT '',
+        article_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(symbol, market)
+      );
+
+      INSERT INTO watchlist_items_next (
+        id, symbol, name, market, category, note, note_path, exchange,
+        currency, industries, tags, thesis, article_count, created_at
+      )
+      SELECT
+        id, symbol, name, market, category, note, note_path, exchange,
+        currency, industries, tags, thesis, article_count, created_at
+      FROM watchlist_items;
+
+      DROP TABLE watchlist_items;
+      ALTER TABLE watchlist_items_next RENAME TO watchlist_items;
+    `);
+  })();
+}
+
 function createDatabase() {
   const database = new Database(databasePath);
   database.pragma("journal_mode = WAL");
@@ -65,6 +109,7 @@ function createDatabase() {
     "article_count",
     "INTEGER NOT NULL DEFAULT 0",
   );
+  migrateWatchlistCategories(database);
 
   // Drop legacy demo seed once; vault import becomes the source of truth.
   const legacyCleared = database
