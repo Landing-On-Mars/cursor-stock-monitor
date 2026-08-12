@@ -4,6 +4,7 @@ import {
   Check,
   Download,
   FileText,
+  GitCommitHorizontal,
   LoaderCircle,
   Plus,
   Search,
@@ -55,6 +56,12 @@ type VaultCategoryChange = {
   vaultTier: string;
 };
 
+type VaultGitStatus = {
+  branch: string;
+  managedFiles: string[];
+  pendingFiles: string[];
+};
+
 type MarketFilter = "ALL" | Market;
 
 const emptyForm: FormState = {
@@ -99,6 +106,8 @@ export function WatchlistManager({
   const [searchError, setSearchError] = useState("");
   const [syncPreview, setSyncPreview] = useState<VaultCategoryChange[] | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [gitPreview, setGitPreview] = useState<VaultGitStatus | null>(null);
+  const [publishing, setPublishing] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequest = useRef(0);
 
@@ -294,13 +303,63 @@ export function WatchlistManager({
       if (!response.ok) throw new Error(await readError(response));
       const payload = (await response.json()) as { changes: VaultCategoryChange[] };
       setSyncPreview(null);
-      setNotice(`已将 ${payload.changes.length} 个分组写回 Vault。`);
+      setNotice(
+        `已将 ${payload.changes.length} 个分组写回 Vault；可继续提交到 GitHub。`,
+      );
     } catch (requestError) {
       setError(
         requestError instanceof Error ? requestError.message : "Vault 分组同步失败。",
       );
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function previewGitPush() {
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/vault/github", { cache: "no-store" });
+      if (!response.ok) throw new Error(await readError(response));
+      const status = (await response.json()) as VaultGitStatus;
+      if (status.pendingFiles.length === 0) {
+        setNotice("没有待提交的 Vault 分组变更。请先同步到 Vault。");
+        return;
+      }
+      setGitPreview(status);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "无法读取 GitHub 提交状态。",
+      );
+    }
+  }
+
+  async function publishVaultToGitHub() {
+    setPublishing(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/vault/github", { method: "POST" });
+      if (!response.ok) throw new Error(await readError(response));
+      const payload = (await response.json()) as {
+        branch: string;
+        committedFiles: string[];
+      };
+      setGitPreview(null);
+      setNotice(
+        `已提交并推送 ${payload.committedFiles.length} 个文件到 GitHub 分支 ${payload.branch}。`,
+      );
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Vault 提交或推送失败。",
+      );
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -390,6 +449,9 @@ export function WatchlistManager({
           <div className="watchlist-head-actions">
             <button className="btn" onClick={() => void previewVaultSync()}>
               <Upload size={14} />同步到 Vault
+            </button>
+            <button className="btn" onClick={() => void previewGitPush()}>
+              <GitCommitHorizontal size={14} />提交到 GitHub
             </button>
             <button className="btn" disabled={importing} onClick={() => void importFromVault()}>
               {importing ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}
@@ -677,6 +739,51 @@ export function WatchlistManager({
                 type="button"
               >
                 {syncing ? "正在写入…" : "确认写回 Vault"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {gitPreview && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setGitPreview(null)}>
+          <div
+            aria-labelledby="publish-vault-title"
+            aria-modal="true"
+            className="modal sync-vault-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="modal-head">
+              <div>
+                <h2 id="publish-vault-title">提交 Vault 到 GitHub</h2>
+                <p>只提交这次分组同步涉及的文件，不会包含其他 Vault 改动。</p>
+              </div>
+              <button aria-label="关闭" onClick={() => setGitPreview(null)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="sync-vault-body">
+              <p>将提交并推送到当前分支：<strong>{gitPreview.branch}</strong></p>
+              <ul>
+                {gitPreview.pendingFiles.map((file) => (
+                  <li key={file}>
+                    <strong>{file}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setGitPreview(null)} type="button">
+                取消
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={publishing}
+                onClick={() => void publishVaultToGitHub()}
+                type="button"
+              >
+                {publishing ? "正在提交…" : "确认提交并推送"}
               </button>
             </div>
           </div>

@@ -3,10 +3,13 @@ import {
   previewVaultCategorySync,
   syncVaultCategories,
 } from "@/lib/vault/category-sync";
+import { db } from "@/lib/db";
 import { resolveVaultPath } from "@/lib/vault/path";
 import { listWatchlistItems } from "@/lib/watchlist-store";
 
 export const dynamic = "force-dynamic";
+
+const PENDING_CATEGORY_FILES_KEY = "vault_pending_category_files";
 
 function readVaultRoot() {
   const vaultRoot = resolveVaultPath();
@@ -33,6 +36,14 @@ export async function POST() {
   try {
     const vaultRoot = readVaultRoot();
     const changes = syncVaultCategories(vaultRoot, listWatchlistItems());
+    const files = [
+      ".workbuddy/migration/stocks-index.csv",
+      ...changes.map((change) => change.notePath),
+    ];
+    db.prepare(
+      `INSERT INTO app_meta (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    ).run(PENDING_CATEGORY_FILES_KEY, JSON.stringify(files));
     return NextResponse.json({ ok: true, vaultPath: vaultRoot, changes });
   } catch (error) {
     return NextResponse.json(
