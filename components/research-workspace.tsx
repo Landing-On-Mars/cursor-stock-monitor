@@ -34,7 +34,13 @@ async function readError(response: Response) {
   return body?.error ?? "请求失败";
 }
 
-export function ResearchWorkspace() {
+type ResearchWorkspaceProps = {
+  initialSymbol?: string | null;
+};
+
+export function ResearchWorkspace({
+  initialSymbol = null,
+}: ResearchWorkspaceProps) {
   const [selected, setSelected] = useState<WatchlistItem | null>(null);
   const [articleBundle, setArticleBundle] = useState<{
     symbol: string;
@@ -42,6 +48,7 @@ export function ResearchWorkspace() {
     error: string;
   } | null>(null);
   const [filter, setFilter] = useState("");
+  const [preferSymbol] = useState(initialSymbol);
 
   useEffect(() => {
     if (!selected) return;
@@ -94,15 +101,30 @@ export function ResearchWorkspace() {
     );
   }, [articleBundle, filter, selected]);
 
+  function pickInitialItem(items: WatchlistItem[]) {
+    if (items.length === 0) return null;
+    if (preferSymbol) {
+      const matched = items.find(
+        (item) => item.symbol.toUpperCase() === preferSymbol,
+      );
+      if (matched) return matched;
+    }
+    return items[0];
+  }
+
   return (
     <>
       <WatchlistManager
         onSelect={setSelected}
         selectedId={selected?.id ?? null}
         onItemsChange={(items) => {
-          if (!selected && items.length > 0) setSelected(items[0]);
-          if (selected && !items.some((item) => item.id === selected.id)) {
-            setSelected(items[0] ?? null);
+          if (!selected) {
+            const next = pickInitialItem(items);
+            if (next) setSelected(next);
+            return;
+          }
+          if (!items.some((item) => item.id === selected.id)) {
+            setSelected(pickInitialItem(items));
           }
         }}
       />

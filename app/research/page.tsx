@@ -1,7 +1,14 @@
 import { ExternalLink } from "lucide-react";
 import { ResearchWorkspace } from "@/components/research-workspace";
 
-export default function ResearchPage() {
+type ResearchPageProps = {
+  searchParams?: Promise<{ symbol?: string }>;
+};
+
+export default async function ResearchPage({ searchParams }: ResearchPageProps) {
+  const params = searchParams ? await searchParams : {};
+  const initialSymbol = params.symbol?.trim().toUpperCase() || null;
+
   return (
     <div className="page">
       <header className="page-header">
@@ -19,7 +26,7 @@ export default function ResearchPage() {
           </a>
         </div>
       </header>
-      <ResearchWorkspace />
+      <ResearchWorkspace initialSymbol={initialSymbol} />
     </div>
   );
 }
