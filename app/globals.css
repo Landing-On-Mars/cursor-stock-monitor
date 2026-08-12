@@ -285,8 +285,9 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .ticker-head { align-items: flex-start; display: flex; justify-content: space-between; }
 .ticker-title { align-items: center; display: flex; gap: 12px; }
 .ticker-badge { align-items: center; background: #101713; border-radius: 9px; color: white; display: flex; font-size: 11px; font-weight: 700; height: 42px; justify-content: center; width: 42px; }
-.ticker-title h2 { font-size: 16px; margin: 0 0 4px; }
+.ticker-title h2 { font-size: 16px; margin: 0; }
 .ticker-title p { color: var(--muted); font-size: 10px; margin: 0; }
+.research-hero > .chart-wrap { margin-top: 12px; }
 .metric-row { display: grid; gap: 8px; grid-template-columns: repeat(4, 1fr); margin: 20px 0; }
 .metric { background: var(--surface-soft); border-radius: 7px; padding: 10px; }
 .metric small, .metric strong { display: block; }

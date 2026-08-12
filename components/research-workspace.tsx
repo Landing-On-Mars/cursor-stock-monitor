@@ -123,28 +123,15 @@ export function ResearchWorkspace({
                 <div className="ticker-head">
                   <div className="ticker-title">
                     <h2>{selected.name}</h2>
-                  </div>
-                  <div className="row-value" style={{ fontSize: 13, textAlign: "right" }}>
-                    <span className={`watch-category watch-category-${selected.category.toLowerCase()}`}>
+                    <span
+                      className={`watch-category watch-category-${selected.category.toLowerCase()}`}
+                    >
                       {selected.category === "CORE"
                         ? "核心"
                         : selected.category === "WATCH"
                           ? "观察"
                           : "路人"}
                     </span>
-                    <small style={{ display: "block", marginTop: 8 }}>
-                      关联文章 {selected.articleCount} 篇
-                    </small>
-                  </div>
-                </div>
-
-                <div
-                  className="card-head"
-                  style={{ padding: "12px 0", borderTop: "1px solid var(--line)", marginTop: 14 }}
-                >
-                  <div>
-                    <h2>日线走势</h2>
-                    <p>模拟行情 · 接入数据源后更新</p>
                   </div>
                   <div className="chart-tabs">
                     <button className="active">日线</button>
