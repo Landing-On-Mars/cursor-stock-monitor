@@ -23,7 +23,7 @@ import {
 const categoryText: Record<WatchlistCategory, string> = {
   CORE: "核心",
   WATCH: "观察",
-  ARCHIVE: "归档",
+  ARCHIVE: "路人",
 };
 
 const marketText: Record<Market, string> = {
@@ -444,7 +444,7 @@ export function WatchlistManager({
         <div className="card-head">
           <div>
             <h2>Vault 自选股</h2>
-            <p>紧凑列表 · 核心 / 观察 / 归档 · 文章关联计数</p>
+            <p>紧凑列表 · 核心 / 观察 / 路人 · 文章关联计数</p>
           </div>
           <div className="watchlist-head-actions">
             <button className="btn" onClick={() => void previewVaultSync()}>
@@ -668,7 +668,7 @@ export function WatchlistManager({
                   >
                     <option value="CORE">核心</option>
                     <option value="WATCH">观察</option>
-                    <option value="ARCHIVE">归档</option>
+                    <option value="ARCHIVE">路人</option>
                   </select>
                 </label>
                 <label className="field field-full">
