@@ -1,7 +1,7 @@
 "use client";
 
 import { ExternalLink, FileText, LoaderCircle, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 export type ArticleSummary = {
   title: string;
@@ -19,6 +19,31 @@ type ArticleDetail = ArticleSummary & {
   author: string;
   obsidianUri?: string;
 };
+
+type ContentPart =
+  | { type: "text"; value: string }
+  | { type: "image"; alt: string; src: string };
+
+function splitArticleContent(content: string): ContentPart[] {
+  const pattern = /!\[([^\]]*)\]\((\/api\/vault\/asset\?[^)\s]+)\)/g;
+  const parts: ContentPart[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: content.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: "image", alt: match[1] || "文章配图", src: match[2] });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push({ type: "text", value: content.slice(lastIndex) });
+  }
+
+  return parts.length > 0 ? parts : [{ type: "text", value: content || "（空文章）" }];
+}
 
 async function readError(response: Response) {
   const body = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -71,6 +96,11 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     };
   }, [article]);
 
+  const parts = useMemo(
+    () => splitArticleContent(detail?.content ?? ""),
+    [detail?.content],
+  );
+
   if (!article) return null;
 
   return (
@@ -117,7 +147,24 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
           ) : error ? (
             <div className="inline-error">{error}</div>
           ) : (
-            <pre className="article-markdown">{detail?.content || "（空文章）"}</pre>
+            <div className="article-markdown">
+              {parts.map((part, index) =>
+                part.type === "image" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt={part.alt}
+                    className="article-image"
+                    key={`img-${index}-${part.src}`}
+                    loading="lazy"
+                    src={part.src}
+                  />
+                ) : (
+                  <Fragment key={`text-${index}`}>
+                    {part.value ? <span className="article-text">{part.value}</span> : null}
+                  </Fragment>
+                ),
+              )}
+            </div>
           )}
         </div>
       </div>

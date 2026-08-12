@@ -204,8 +204,17 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   font-size: 12px;
   line-height: 1.75;
   margin: 0;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+.article-text { white-space: pre-wrap; }
+.article-image {
+  background: #f3f5f3;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: block;
+  height: auto;
+  margin: 14px 0;
+  max-width: 100%;
 }
 .tag { background: #f1f3f0; border-radius: 4px; color: #667069; font-size: 9px; padding: 3px 6px; }
 

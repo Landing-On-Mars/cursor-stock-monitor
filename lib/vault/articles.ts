@@ -5,6 +5,7 @@ import {
   asStringArray,
   parseFrontmatter,
 } from "@/lib/vault/frontmatter";
+import { rewriteArticleMedia } from "@/lib/vault/assets";
 
 export type VaultArticle = {
   title: string;
@@ -138,6 +139,7 @@ export function readVaultArticle(
   const sourceText = fs.readFileSync(resolved, "utf8");
   const { data, content } = parseFrontmatter(sourceText);
   const name = path.basename(safePath);
+  const rewritten = rewriteArticleMedia(content.trim(), vaultRoot, safePath);
 
   return {
     title:
@@ -154,7 +156,7 @@ export function readVaultArticle(
     industries: asStringArray(data.industries),
     status: asString(data.status, "inbox"),
     tags: asStringArray(data.tags),
-    content: content.trim(),
+    content: rewritten,
   };
 }
 
