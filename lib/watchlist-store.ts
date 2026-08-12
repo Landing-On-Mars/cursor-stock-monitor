@@ -61,7 +61,7 @@ export function listWatchlistItems() {
          CASE category
            WHEN 'CORE' THEN 0
            WHEN 'WATCH' THEN 1
-           WHEN 'LOW_FREQUENCY' THEN 2
+           WHEN 'ARCHIVE' THEN 2
            ELSE 3
          END,
          CASE market WHEN 'HK' THEN 0 WHEN 'CN' THEN 1 ELSE 2 END,

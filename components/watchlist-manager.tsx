@@ -9,6 +9,7 @@ import {
   Search,
   Star,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -21,7 +22,7 @@ import {
 const categoryText: Record<WatchlistCategory, string> = {
   CORE: "核心",
   WATCH: "观察",
-  LOW_FREQUENCY: "低频",
+  ARCHIVE: "归档",
 };
 
 const marketText: Record<Market, string> = {
@@ -43,6 +44,15 @@ type StockSearchResult = {
   yahooSymbol: string;
   name: string;
   market: Market;
+};
+
+type VaultCategoryChange = {
+  id: number;
+  symbol: string;
+  name: string;
+  notePath: string;
+  dashboardTier: string;
+  vaultTier: string;
 };
 
 type MarketFilter = "ALL" | Market;
@@ -87,6 +97,8 @@ export function WatchlistManager({
   const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [syncPreview, setSyncPreview] = useState<VaultCategoryChange[] | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequest = useRef(0);
 
@@ -134,7 +146,7 @@ export function WatchlistManager({
       ALL: items.length,
       CORE: items.filter((item) => item.category === "CORE").length,
       WATCH: items.filter((item) => item.category === "WATCH").length,
-      LOW_FREQUENCY: items.filter((item) => item.category === "LOW_FREQUENCY").length,
+      ARCHIVE: items.filter((item) => item.category === "ARCHIVE").length,
       HK: items.filter((item) => item.market === "HK").length,
       CN: items.filter((item) => item.market === "CN").length,
       US: items.filter((item) => item.market === "US").length,
@@ -252,6 +264,46 @@ export function WatchlistManager({
     }
   }
 
+  async function previewVaultSync() {
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/vault/categories", { cache: "no-store" });
+      if (!response.ok) throw new Error(await readError(response));
+      const payload = (await response.json()) as { changes: VaultCategoryChange[] };
+
+      if (payload.changes.length === 0) {
+        setNotice("Vault 分组已是最新，无需同步。");
+        return;
+      }
+      setSyncPreview(payload.changes);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error ? requestError.message : "无法预览 Vault 同步。",
+      );
+    }
+  }
+
+  async function syncCategoriesToVault() {
+    setSyncing(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/vault/categories", { method: "POST" });
+      if (!response.ok) throw new Error(await readError(response));
+      const payload = (await response.json()) as { changes: VaultCategoryChange[] };
+      setSyncPreview(null);
+      setNotice(`已将 ${payload.changes.length} 个分组写回 Vault。`);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error ? requestError.message : "Vault 分组同步失败。",
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function createItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
@@ -333,9 +385,12 @@ export function WatchlistManager({
         <div className="card-head">
           <div>
             <h2>Vault 自选股</h2>
-            <p>紧凑列表 · 核心 / 观察 / 低频 · 文章关联计数</p>
+            <p>紧凑列表 · 核心 / 观察 / 归档 · 文章关联计数</p>
           </div>
           <div className="watchlist-head-actions">
+            <button className="btn" onClick={() => void previewVaultSync()}>
+              <Upload size={14} />同步到 Vault
+            </button>
             <button className="btn" disabled={importing} onClick={() => void importFromVault()}>
               {importing ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}
               {importing ? "导入中…" : "从 Vault 导入"}
@@ -348,7 +403,7 @@ export function WatchlistManager({
 
         <div className="watchlist-controls compact-controls">
           <div className="segment-control">
-            {(["CORE", "WATCH", "LOW_FREQUENCY"] as const).map((value) => (
+            {(["CORE", "WATCH", "ARCHIVE"] as const).map((value) => (
               <button
                 className={category === value ? "active" : ""}
                 key={value}
@@ -443,7 +498,7 @@ export function WatchlistManager({
                   onKeyDown={(event) => event.stopPropagation()}
                   value={item.category}
                 >
-                  {(["CORE", "WATCH", "LOW_FREQUENCY"] as const).map((value) => (
+                  {(["CORE", "WATCH", "ARCHIVE"] as const).map((value) => (
                     <option key={value} value={value}>
                       {categoryText[value]}
                     </option>
@@ -551,7 +606,7 @@ export function WatchlistManager({
                   >
                     <option value="CORE">核心</option>
                     <option value="WATCH">观察</option>
-                    <option value="LOW_FREQUENCY">低频</option>
+                    <option value="ARCHIVE">归档</option>
                   </select>
                 </label>
                 <label className="field field-full">
@@ -578,6 +633,52 @@ export function WatchlistManager({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {syncPreview && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setSyncPreview(null)}>
+          <div
+            aria-labelledby="sync-vault-title"
+            aria-modal="true"
+            className="modal sync-vault-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="modal-head">
+              <div>
+                <h2 id="sync-vault-title">同步分组到 Vault</h2>
+                <p>将修改股票笔记 Frontmatter 与 stocks-index.csv。</p>
+              </div>
+              <button aria-label="关闭" onClick={() => setSyncPreview(null)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="sync-vault-body">
+              <p>以下 {syncPreview.length} 只股票会被写回 investment-vault：</p>
+              <ul>
+                {syncPreview.map((change) => (
+                  <li key={change.id}>
+                    <strong>{change.symbol}</strong> · {change.name}
+                    <span>{change.vaultTier} → {change.dashboardTier}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setSyncPreview(null)} type="button">
+                取消
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={syncing}
+                onClick={() => void syncCategoriesToVault()}
+                type="button"
+              >
+                {syncing ? "正在写入…" : "确认写回 Vault"}
+              </button>
+            </div>
           </div>
         </div>
       )}

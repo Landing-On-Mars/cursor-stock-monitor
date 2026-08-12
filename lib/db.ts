@@ -30,7 +30,7 @@ function migrateWatchlistCategories(database: Database.Database) {
     )
     .get() as { sql?: string } | undefined;
 
-  if (!table?.sql || table.sql.includes("LOW_FREQUENCY")) return;
+  if (!table?.sql || table.sql.includes("'ARCHIVE'")) return;
 
   database.transaction(() => {
     database.exec(`
@@ -39,7 +39,7 @@ function migrateWatchlistCategories(database: Database.Database) {
         symbol TEXT NOT NULL COLLATE NOCASE,
         name TEXT NOT NULL,
         market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN')),
-        category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'LOW_FREQUENCY')),
+        category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'ARCHIVE')),
         note TEXT NOT NULL DEFAULT '',
         note_path TEXT NOT NULL DEFAULT '',
         exchange TEXT NOT NULL DEFAULT '',
@@ -57,7 +57,9 @@ function migrateWatchlistCategories(database: Database.Database) {
         currency, industries, tags, thesis, article_count, created_at
       )
       SELECT
-        id, symbol, name, market, category, note, note_path, exchange,
+        id, symbol, name, market,
+        CASE category WHEN 'LOW_FREQUENCY' THEN 'ARCHIVE' ELSE category END,
+        note, note_path, exchange,
         currency, industries, tags, thesis, article_count, created_at
       FROM watchlist_items;
 
@@ -78,7 +80,7 @@ function createDatabase() {
       symbol TEXT NOT NULL COLLATE NOCASE,
       name TEXT NOT NULL,
       market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN')),
-      category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH')),
+      category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'ARCHIVE')),
       note TEXT NOT NULL DEFAULT '',
       note_path TEXT NOT NULL DEFAULT '',
       exchange TEXT NOT NULL DEFAULT '',

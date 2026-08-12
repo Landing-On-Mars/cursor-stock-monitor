@@ -144,7 +144,7 @@ export function ResearchWorkspace({
                         ? "核心"
                         : selected.category === "WATCH"
                           ? "观察"
-                          : "低频"}
+                          : "归档"}
                     </span>
                     <small style={{ display: "block", marginTop: 8 }}>
                       关联文章 {selected.articleCount} 篇

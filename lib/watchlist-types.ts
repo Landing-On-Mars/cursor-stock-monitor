@@ -1,4 +1,4 @@
-export const WATCHLIST_CATEGORIES = ["CORE", "WATCH", "LOW_FREQUENCY"] as const;
+export const WATCHLIST_CATEGORIES = ["CORE", "WATCH", "ARCHIVE"] as const;
 export const MARKETS = ["US", "HK", "CN"] as const;
 
 export type WatchlistCategory = (typeof WATCHLIST_CATEGORIES)[number];

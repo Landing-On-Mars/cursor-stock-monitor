@@ -389,6 +389,33 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   margin: 10px 16px;
   padding: 8px 10px;
 }
+.sync-vault-modal { max-width: 580px; }
+.sync-vault-body { padding: 16px 20px 4px; }
+.sync-vault-body > p {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0 0 10px;
+}
+.sync-vault-body ul {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  list-style: none;
+  margin: 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 0;
+}
+.sync-vault-body li {
+  align-items: center;
+  border-bottom: 1px solid #eef0ed;
+  display: flex;
+  font-size: 11px;
+  gap: 6px;
+  justify-content: space-between;
+  padding: 9px 11px;
+}
+.sync-vault-body li:last-child { border-bottom: 0; }
+.sync-vault-body li span { color: var(--muted); font-size: 10px; white-space: nowrap; }
 .settings-panel { padding-bottom: 18px; }
 .settings-status {
   display: grid;
@@ -455,7 +482,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .watch-category { border-radius: 12px; font-size: 9px; justify-self: start; padding: 4px 8px; }
 .watch-category-core { background: var(--green-soft); color: var(--green); }
 .watch-category-watch { background: var(--amber-soft); color: var(--amber); }
-.watch-category-low_frequency { background: #eef0f2; color: #65707a; }
+.watch-category-archive { background: #eef0f2; color: #65707a; }
 .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
 .row-actions button, .modal-head button {
   align-items: center;

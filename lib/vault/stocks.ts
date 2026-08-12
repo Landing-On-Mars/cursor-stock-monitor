@@ -69,7 +69,10 @@ function readStocksIndex(vaultRoot: string) {
 }
 
 function toCategory(tier: string): WatchlistCategory {
-  return tier.trim().toLowerCase() === "core" ? "CORE" : "WATCH";
+  const normalized = tier.trim().toLowerCase();
+  if (normalized === "core") return "CORE";
+  if (normalized === "archive") return "ARCHIVE";
+  return "WATCH";
 }
 
 function toMarket(value: string): Market {
