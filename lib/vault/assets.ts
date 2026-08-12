@@ -39,6 +39,15 @@ export function mimeTypeForPath(filePath: string) {
   return MIME_TYPES[path.extname(filePath).toLowerCase()] ?? "application/octet-stream";
 }
 
+function withAlternateExtensions(relativePath: string) {
+  const ext = path.extname(relativePath);
+  const stem = relativePath.slice(0, -ext.length);
+  const alternatives = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+  return [relativePath, ...alternatives.map((next) => `${stem}${next}`)].filter(
+    (value, index, list) => list.indexOf(value) === index,
+  );
+}
+
 /** Resolve Obsidian / markdown image targets to a vault-relative path. */
 export function resolveVaultImage(
   vaultRoot: string,
@@ -54,7 +63,7 @@ export function resolveVaultImage(
   }
 
   const prefix = articleAttachmentPrefix(articleRelativePath);
-  const candidates = [
+  const baseCandidates = [
     cleaned.startsWith("Articles/") ? cleaned : null,
     cleaned.startsWith("attachments/") ? `Articles/${cleaned}` : null,
     `Articles/attachments/${cleaned}`,
@@ -63,6 +72,8 @@ export function resolveVaultImage(
       ? `Articles/attachments/${prefix}/${cleaned}`
       : null,
   ].filter((value): value is string => Boolean(value));
+
+  const candidates = baseCandidates.flatMap(withAlternateExtensions);
 
   for (const relative of candidates) {
     const absolute = path.join(vaultRoot, relative);
