@@ -101,3 +101,65 @@ export function articleCountBySymbol(vaultRoot: string) {
   }
   return counts;
 }
+
+export type VaultArticleContent = VaultArticle & {
+  content: string;
+  absolutePath: string;
+};
+
+function assertArticlePath(relativePath: string) {
+  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (
+    !normalized.startsWith("Articles/") ||
+    normalized.includes("..") ||
+    !normalized.endsWith(".md")
+  ) {
+    throw new Error("只能读取 Articles 目录下的 Markdown 文件。");
+  }
+  return normalized;
+}
+
+export function readVaultArticle(
+  vaultRoot: string,
+  relativePath: string,
+): VaultArticleContent {
+  const safePath = assertArticlePath(relativePath);
+  const absolutePath = path.join(vaultRoot, safePath);
+  const resolved = path.resolve(absolutePath);
+  const articlesRoot = path.resolve(path.join(vaultRoot, "Articles"));
+
+  if (!resolved.startsWith(articlesRoot + path.sep)) {
+    throw new Error("文章路径超出 Vault Articles 范围。");
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`找不到文章：${safePath}`);
+  }
+
+  const sourceText = fs.readFileSync(resolved, "utf8");
+  const { data, content } = parseFrontmatter(sourceText);
+  const name = path.basename(safePath);
+
+  return {
+    title:
+      asString(data.title) ||
+      name.replace(/\.md$/, "").replace(/^.*?[：:]/, "").trim() ||
+      name,
+    path: safePath,
+    absolutePath: resolved,
+    source: asString(data.source),
+    author: asString(data.author),
+    publishedAt: asString(data.published_at),
+    savedAt: asString(data.saved_at),
+    symbols: asStringArray(data.symbols),
+    industries: asStringArray(data.industries),
+    status: asString(data.status, "inbox"),
+    tags: asStringArray(data.tags),
+    content: content.trim(),
+  };
+}
+
+export function buildObsidianUri(vaultRoot: string, relativePath: string) {
+  const vaultName = path.basename(vaultRoot);
+  const file = assertArticlePath(relativePath).replace(/\.md$/i, "");
+  return `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(file)}`;
+}

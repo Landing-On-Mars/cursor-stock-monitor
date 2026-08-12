@@ -8,20 +8,15 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  ArticleReader,
+  type ArticleSummary,
+} from "@/components/article-reader";
 import { MarketChart } from "@/components/market-chart";
 import { WatchlistManager } from "@/components/watchlist-manager";
 import type { WatchlistItem } from "@/lib/watchlist-types";
 
-type VaultArticle = {
-  title: string;
-  path: string;
-  source: string;
-  publishedAt: string;
-  savedAt: string;
-  symbols: string[];
-  tags: string[];
-  status: string;
-};
+type VaultArticle = ArticleSummary;
 
 const marketLabel = {
   US: "美股",
@@ -49,6 +44,7 @@ export function ResearchWorkspace({
   } | null>(null);
   const [filter, setFilter] = useState("");
   const [preferSymbol] = useState(initialSymbol);
+  const [openedArticle, setOpenedArticle] = useState<VaultArticle | null>(null);
 
   useEffect(() => {
     if (!selected) return;
@@ -251,7 +247,12 @@ export function ResearchWorkspace({
                 </div>
               ) : (
                 visibleArticles.map((article) => (
-                  <div className="note-row" key={article.path}>
+                  <button
+                    className="note-row note-row-link note-row-button"
+                    key={article.path}
+                    onClick={() => setOpenedArticle(article)}
+                    type="button"
+                  >
                     <span className="market-icon">
                       <FileText size={13} />
                     </span>
@@ -263,16 +264,21 @@ export function ResearchWorkspace({
                           (article.tags[0] ? ` · ${article.tags[0]}` : "")}
                       </small>
                     </div>
-                    <span title={article.path}>
+                    <span title="打开文章">
                       <ExternalLink size={13} color="#929a94" />
                     </span>
-                  </div>
+                  </button>
                 ))
               )}
             </aside>
           </section>
         </>
       )}
+
+      <ArticleReader
+        article={openedArticle}
+        onClose={() => setOpenedArticle(null)}
+      />
     </>
   );
 }
