@@ -1,7 +1,7 @@
 "use client";
 
 import { ExternalLink, FileText, LoaderCircle, X } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 export type ArticleSummary = {
   title: string;
@@ -43,6 +43,106 @@ function splitArticleContent(content: string): ContentPart[] {
   }
 
   return parts.length > 0 ? parts : [{ type: "text", value: content || "（空文章）" }];
+}
+
+function renderInline(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) {
+      nodes.push(text.slice(last, match.index));
+    }
+    const token = match[0];
+    if (token.startsWith("**")) {
+      nodes.push(<strong key={`b-${key++}`}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("`")) {
+      nodes.push(<code key={`c-${key++}`}>{token.slice(1, -1)}</code>);
+    } else {
+      const link = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (link) {
+        nodes.push(
+          <a href={link[2]} key={`a-${key++}`} rel="noreferrer" target="_blank">
+            {link[1]}
+          </a>,
+        );
+      } else {
+        nodes.push(token);
+      }
+    }
+    last = match.index + token.length;
+  }
+
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+function MarkdownText({ value }: { value: string }) {
+  const blocks = value.replace(/\r\n/g, "\n").split(/\n{2,}/);
+
+  return (
+    <>
+      {blocks.map((block, index) => {
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+
+        if (/^---+$/.test(trimmed)) {
+          return <hr className="article-hr" key={`hr-${index}`} />;
+        }
+
+        const heading = trimmed.match(/^(#{1,3})\s+(.+)$/s);
+        if (heading) {
+          const level = heading[1].length;
+          const text = heading[2].replace(/\n/g, " ");
+          if (level === 1) {
+            return (
+              <h3 className="article-h1" key={`h-${index}`}>
+                {renderInline(text)}
+              </h3>
+            );
+          }
+          if (level === 2) {
+            return (
+              <h4 className="article-h2" key={`h-${index}`}>
+                {renderInline(text)}
+              </h4>
+            );
+          }
+          return (
+            <h5 className="article-h3" key={`h-${index}`}>
+              {renderInline(text)}
+            </h5>
+          );
+        }
+
+        if (trimmed.startsWith("> ")) {
+          const quote = trimmed
+            .split("\n")
+            .map((line) => line.replace(/^>\s?/, ""))
+            .join("\n");
+          return (
+            <blockquote className="article-quote" key={`q-${index}`}>
+              {renderInline(quote)}
+            </blockquote>
+          );
+        }
+
+        return (
+          <p className="article-paragraph" key={`p-${index}`}>
+            {trimmed.split("\n").map((line, lineIndex, lines) => (
+              <span key={`l-${index}-${lineIndex}`}>
+                {renderInline(line)}
+                {lineIndex < lines.length - 1 ? <br /> : null}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </>
+  );
 }
 
 async function readError(response: Response) {
@@ -104,7 +204,7 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
   if (!article) return null;
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="modal-backdrop article-reader-backdrop" role="presentation" onMouseDown={onClose}>
       <div
         aria-labelledby="article-reader-title"
         aria-modal="true"
@@ -158,11 +258,9 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
                     loading="lazy"
                     src={part.src}
                   />
-                ) : (
-                  <Fragment key={`text-${index}`}>
-                    {part.value ? <span className="article-text">{part.value}</span> : null}
-                  </Fragment>
-                ),
+                ) : part.value ? (
+                  <MarkdownText key={`text-${index}`} value={part.value} />
+                ) : null,
               )}
             </div>
           )}
