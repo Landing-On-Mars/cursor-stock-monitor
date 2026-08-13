@@ -413,7 +413,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .content-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) 320px; }
 .content-grid.research-grid {
   align-items: start;
-  grid-template-columns: minmax(260px, 0.82fr) minmax(420px, 1.18fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 .research-notes-card {
   display: flex;
@@ -759,6 +759,9 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .modal-head p { color: var(--muted); font-size: 9px; margin: 5px 0 0; }
 .modal form { padding: 19px 20px; }
 .form-grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+.idea-composer-modal .form-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.9fr);
+}
 .field { display: grid; gap: 6px; }
 .field > span { color: #5e6761; font-size: 10px; font-weight: 600; }
 .field input, .field select, .field textarea {

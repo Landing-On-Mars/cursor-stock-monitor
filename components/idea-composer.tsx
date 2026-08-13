@@ -109,7 +109,6 @@ export function IdeaComposer({
               <Lightbulb size={13} /> {symbol} · {name}
             </p>
             <h2 id="idea-composer-title">记录一笔</h2>
-            <p>写入 Drive Vault 的 Articles，Obsidian 打开同一文件即可看到。</p>
           </div>
           <button aria-label="关闭" onClick={onClose} type="button">
             <X size={18} />
