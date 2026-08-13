@@ -10,7 +10,13 @@ venv/
 .env.local
 .env.*.local
 
+# Local application data
+data/*.db
+data/*.db-*
+
 # Build output
+.next/
+next-env.d.ts
 dist/
 build/
 *.log
@@ -22,3 +28,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Generated local agent instructions
+AGENTS.md
+CLAUDE.md

@@ -1,0 +1,39 @@
+{
+  "name": "stock-journal-dashboard",
+  "version": "1.0.0",
+  "description": "A stock monitoring tool built for the Cursor AI editor environment.",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Landing-On-Mars/cursor-stock-monitor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Landing-On-Mars/cursor-stock-monitor/issues"
+  },
+  "homepage": "https://github.com/Landing-On-Mars/cursor-stock-monitor#readme",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "lucide-react": "^1.31.0",
+    "next": "^16.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.0",
+    "typescript": "^6.0.3"
+  }
+}
