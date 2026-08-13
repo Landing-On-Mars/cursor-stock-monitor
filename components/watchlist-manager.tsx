@@ -262,7 +262,7 @@ export function WatchlistManager({
       };
       applyItems(payload.items);
       setNotice(
-        `已从 Vault 导入 ${payload.imported} 只（核心 ${payload.core} · 观察 ${payload.watch}）`,
+        `已从 Drive Vault 导入 ${payload.imported} 只（核心 ${payload.core} · 观察 ${payload.watch}）`,
       );
       if (payload.items[0]) onSelect?.(payload.items[0]);
     } catch (requestError) {
@@ -454,7 +454,7 @@ export function WatchlistManager({
             </button>
             <button className="btn" disabled={importing} onClick={() => void importFromVault()}>
               {importing ? <LoaderCircle className="spin" size={14} /> : <Download size={14} />}
-              {importing ? "导入中…" : "从 Vault 导入"}
+              {importing ? "导入中…" : "从 Drive 导入"}
             </button>
             <button className="btn btn-primary" onClick={openCreateForm}>
               <Plus size={14} />添加

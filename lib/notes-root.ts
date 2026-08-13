@@ -19,7 +19,7 @@ export function resolveNotesRoot() {
 export function notesRootOrThrow() {
   const root = resolveNotesRoot();
   if (!root) {
-    throw new Error("还没有 Drive 笔记库。请先在设置中从 Journal 导入到 Google Drive。");
+    throw new Error("还没有 Drive 笔记库。请先在设置中保存 Google Drive 文件夹。");
   }
   return root;
 }

@@ -111,31 +111,47 @@ function stockFromNote(
   };
 }
 
-function scanUnsupportedNotes(vaultRoot: string, seen: Set<string>) {
-  const dir = path.join(vaultRoot, "Stocks", "Unsupported");
-  if (!fs.existsSync(dir)) return [];
+function scanStockFolders(vaultRoot: string, seen: Set<string>) {
+  const folders = [
+    ["US", "US"],
+    ["HK", "HK"],
+    ["CN", "CN"],
+    ["Unsupported", "OTHER"],
+  ] as const;
 
-  return fs
-    .readdirSync(dir)
-    .filter((name) => name.endsWith(".md"))
-    .map((name) => `Stocks/Unsupported/${name}`)
-    .filter((notePath) => !seen.has(notePath))
-    .map((notePath) => stockFromNote(vaultRoot, notePath, { market: "OTHER" }));
+  const stocks: VaultStock[] = [];
+  for (const [folder, fallbackMarket] of folders) {
+    const dir = path.join(vaultRoot, "Stocks", folder);
+    if (!fs.existsSync(dir)) continue;
+
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.endsWith(".md")) continue;
+      const notePath = `Stocks/${folder}/${name}`;
+      if (seen.has(notePath)) continue;
+      stocks.push(
+        stockFromNote(vaultRoot, notePath, { market: fallbackMarket }),
+      );
+      seen.add(notePath);
+    }
+  }
+  return stocks;
 }
 
 export function scanVaultStocks(vaultRoot: string): VaultStock[] {
-  const rows = readStocksIndex(vaultRoot);
   const stocks: VaultStock[] = [];
   const seen = new Set<string>();
 
-  for (const row of rows) {
-    const notePath = row.note_path;
-    const stock = stockFromNote(vaultRoot, notePath, row);
-    stocks.push(stock);
-    seen.add(notePath.replace(/\\/g, "/"));
+  try {
+    for (const row of readStocksIndex(vaultRoot)) {
+      const notePath = row.note_path.replace(/\\/g, "/");
+      stocks.push(stockFromNote(vaultRoot, notePath, row));
+      seen.add(notePath);
+    }
+  } catch {
+    // Drive Vault 里可能没有 .workbuddy CSV，改为只扫 Stocks 目录。
   }
 
-  stocks.push(...scanUnsupportedNotes(vaultRoot, seen));
+  stocks.push(...scanStockFolders(vaultRoot, seen));
 
   return stocks.sort((left, right) => {
     if (left.category !== right.category) {

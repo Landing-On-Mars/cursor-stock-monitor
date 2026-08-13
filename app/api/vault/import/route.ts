@@ -21,6 +21,7 @@ export async function GET() {
   const payload = {
     ...journal,
     notesRoot,
+    available: Boolean(notesRoot || journal.resolved),
     storedArticleCount: notes.articleCount,
     storedAssetCount: notes.imageCount,
     watchlistCount: listWatchlistItems().length,
@@ -59,33 +60,40 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  let body: { replace?: boolean; vaultPath?: string } = {};
+  let body: { replace?: boolean; vaultPath?: string; copyFromJournal?: boolean } =
+    {};
   try {
-    body = (await request.json()) as { replace?: boolean; vaultPath?: string };
+    body = (await request.json()) as {
+      replace?: boolean;
+      vaultPath?: string;
+      copyFromJournal?: boolean;
+    };
   } catch {
     body = {};
   }
 
   const journalRoot = resolveVaultPath(body.vaultPath);
   let notesRoot = resolveNotesRoot();
-  if (!notesRoot) {
-    if (!journalRoot) {
-      return NextResponse.json(
-        { error: "未找到 Drive Vault。请先填写 Journal 路径并导入到 Google Drive。" },
-        { status: 404 },
-      );
-    }
-  }
 
   try {
     invalidateArticleCache();
-    if (!notesRoot && journalRoot) {
+    if (body.copyFromJournal) {
+      if (!journalRoot) {
+        return NextResponse.json(
+          { error: "未找到 Journal，无法拷入 Drive Vault。" },
+          { status: 404 },
+        );
+      }
       const copied = copyJournalToDriveVault(journalRoot);
       notesRoot = resolveNotesRoot() || copied.notesRoot;
     }
+
     if (!notesRoot) {
       return NextResponse.json(
-        { error: "还没有 Drive 笔记库，请先从 Journal 导入。" },
+        {
+          error:
+            "还没有 Drive Vault。请先保存 Google Drive 文件夹；若 Vault 为空，再从 Journal 拷入一次。",
+        },
         { status: 404 },
       );
     }

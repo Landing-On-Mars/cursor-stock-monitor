@@ -167,7 +167,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function importVault() {
+  async function importVault(copyFromJournal = false) {
     setImporting(true);
     setError("");
     setMessage("");
@@ -176,7 +176,7 @@ export default function SettingsPage() {
       const response = await fetch("/api/vault/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ replace: false }),
+        body: JSON.stringify({ replace: false, copyFromJournal }),
       });
       if (!response.ok) throw new Error(await readError(response));
       const payload = (await response.json()) as {
@@ -189,7 +189,7 @@ export default function SettingsPage() {
       };
       await Promise.all([refreshStatus(), refreshDatabase()]);
       setMessage(
-        `已拷入 Drive Vault：文章 ${payload.articles ?? 0} 篇、图片 ${payload.assets ?? 0} 张；自选 ${payload.imported} 只（核心 ${payload.core} · 观察 ${payload.watch} · 路人 ${payload.archive}）。请用 Obsidian 打开 Northstar\\Vault。`,
+        `已从 Drive Vault 导入自选 ${payload.imported} 只（核心 ${payload.core} · 观察 ${payload.watch} · 路人 ${payload.archive}）。`,
       );
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "导入失败");
@@ -286,7 +286,23 @@ export default function SettingsPage() {
                 >
                   {savingDatabase ? "保存中…" : "保存同步文件夹"}
                 </button>
+                <button
+                  className="btn"
+                  disabled={importing || !status?.notesRoot}
+                  onClick={() => void importVault()}
+                  type="button"
+                >
+                  {importing ? (
+                    <LoaderCircle className="spin" size={14} />
+                  ) : (
+                    <RefreshCw size={14} />
+                  )}
+                  {importing ? "导入中…" : "从 Drive Vault 导入自选"}
+                </button>
               </div>
+              <p className="settings-hint">
+                日常用这个按钮：从 <code>Northstar\Vault\Stocks</code> 刷新自选（含「其他」市场）。不会覆盖笔记。
+              </p>
             </form>
           </>
         )}
@@ -295,8 +311,8 @@ export default function SettingsPage() {
       <section className="card settings-panel">
         <div className="card-head">
           <div>
-            <h2>从 Journal 导入</h2>
-            <p>一次性把 Articles、Stocks 拷到 Drive 的 Vault，之后两边改同一批 md</p>
+            <h2>从 Journal 拷贝（可选）</h2>
+            <p>只有 Drive 里还没有 Vault 时才需要。日常导入请用上面的 Drive 按钮</p>
           </div>
           <span className="icon-box">
             <Settings size={15} />
@@ -347,30 +363,18 @@ export default function SettingsPage() {
                 </div>
               </label>
               <p className="settings-hint">
-                导入后看板读写 Drive 里的 Markdown，Journal 可留作备份。Obsidian 打开：
-                <code>{status?.notesRoot || "（导入后显示）"}</code>
-                。Journal 解析：
+                会覆盖 Drive 里的 <code>Vault/Articles</code> 和 <code>Vault/Stocks</code>
+                。家里这台一般不用。当前 Journal：
                 <code>{status?.resolved || "—"}</code>
-                {typeof status?.storedArticleCount === "number" ? (
-                  <>
-                    。Drive Vault 文章 {status.storedArticleCount} 篇
-                    {typeof status.storedAssetCount === "number"
-                      ? ` · 图片 ${status.storedAssetCount} 张`
-                      : ""}
-                    。
-                  </>
-                ) : (
-                  "。"
-                )}
               </p>
               <div className="modal-actions" style={{ padding: "0 0 4px" }}>
                 <button className="btn" disabled={saving} type="submit">
                   {saving ? "保存中…" : "保存路径"}
                 </button>
                 <button
-                  className="btn btn-primary"
-                  disabled={importing || !status?.available}
-                  onClick={() => void importVault()}
+                  className="btn"
+                  disabled={importing || !status?.resolved}
+                  onClick={() => void importVault(true)}
                   type="button"
                 >
                   {importing ? (
@@ -378,7 +382,7 @@ export default function SettingsPage() {
                   ) : (
                     <RefreshCw size={14} />
                   )}
-                  {importing ? "导入中…" : "拷入 Drive Vault 并导入自选"}
+                  {importing ? "拷贝中…" : "从 Journal 拷入 Drive"}
                 </button>
               </div>
             </form>
