@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, FileText, LoaderCircle, X } from "lucide-react";
+import { FileText, LoaderCircle, Pencil, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 export type ArticleSummary = {
@@ -16,8 +16,8 @@ export type ArticleSummary = {
 
 type ArticleDetail = ArticleSummary & {
   content: string;
+  rawContent?: string;
   author: string;
-  obsidianUri?: string;
 };
 
 type ContentPart =
@@ -158,6 +158,9 @@ type ArticleReaderProps = {
 export function ArticleReader({ article, onClose }: ArticleReaderProps) {
   const [detail, setDetail] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -172,6 +175,7 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
       setLoading(true);
       setError("");
       setDetail(null);
+      setEditing(false);
       try {
         const response = await fetch(
           `/api/vault/articles/content?path=${encodeURIComponent(path)}`,
@@ -181,6 +185,7 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
         const data = (await response.json()) as ArticleDetail;
         if (!active) return;
         setDetail(data);
+        setDraft(data.rawContent || "");
       } catch (requestError: unknown) {
         if (!active) return;
         setError(
@@ -200,6 +205,28 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     () => splitArticleContent(detail?.content ?? ""),
     [detail?.content],
   );
+
+  async function saveDraft() {
+    if (!article) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/vault/articles/content", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: article.path, content: draft }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      const data = (await response.json()) as ArticleDetail;
+      setDetail(data);
+      setDraft(data.rawContent || draft);
+      setEditing(false);
+    } catch (requestError: unknown) {
+      setError(requestError instanceof Error ? requestError.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (!article) return null;
 
@@ -226,12 +253,44 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
             </p>
           </div>
           <div className="article-reader-actions">
-            {detail?.obsidianUri && (
-              <a className="btn" href={detail.obsidianUri}>
-                <ExternalLink size={14} />
-                Obsidian
-              </a>
-            )}
+            {detail && !editing ? (
+              <button
+                className="btn"
+                onClick={() => {
+                  setDraft(detail.rawContent || "");
+                  setEditing(true);
+                }}
+                type="button"
+              >
+                <Pencil size={14} />
+                编辑
+              </button>
+            ) : null}
+            {editing ? (
+              <>
+                <button
+                  className="btn btn-primary"
+                  disabled={saving}
+                  onClick={() => void saveDraft()}
+                  type="button"
+                >
+                  {saving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
+                  {saving ? "保存中…" : "保存"}
+                </button>
+                <button
+                  className="btn"
+                  disabled={saving}
+                  onClick={() => {
+                    setDraft(detail?.rawContent || "");
+                    setEditing(false);
+                    setError("");
+                  }}
+                  type="button"
+                >
+                  取消
+                </button>
+              </>
+            ) : null}
             <button aria-label="关闭" onClick={onClose} type="button">
               <X size={18} />
             </button>
@@ -244,8 +303,22 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
               <LoaderCircle className="spin" size={18} />
               <span>正在读取文章…</span>
             </div>
-          ) : error ? (
+          ) : error && !detail ? (
             <div className="inline-error">{error}</div>
+          ) : editing ? (
+            <>
+              {error ? <div className="inline-error">{error}</div> : null}
+              <textarea
+                className="article-editor"
+                onChange={(event) => setDraft(event.target.value)}
+                spellCheck={false}
+                value={draft}
+              />
+              <p className="settings-hint" style={{ padding: "8px 0 0" }}>
+                保存写入 Google Drive 里的 Markdown。Obsidian 打开同一文件即可看到修改。配图请继续用
+                <code>![[图片.png]]</code>。
+              </p>
+            </>
           ) : (
             <div className="article-markdown">
               {parts.map((part, index) =>

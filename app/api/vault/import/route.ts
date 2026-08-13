@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { databaseStatus, getDb } from "@/lib/db";
+import { notesStatus, resolveNotesRoot } from "@/lib/notes-root";
+import { copyJournalToDriveVault } from "@/lib/store-import";
 import {
   articleCountBySymbol,
   invalidateArticleCache,
@@ -12,34 +14,43 @@ import { listWatchlistItems, upsertVaultWatchlistItem } from "@/lib/watchlist-st
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const status = vaultStatus();
-  if (!status.resolved) {
-    return NextResponse.json({
-      ...status,
-      stockCount: 0,
-      articleCount: 0,
-      watchlistCount: listWatchlistItems().length,
-    });
+  const journal = vaultStatus();
+  const notes = notesStatus();
+  const store = databaseStatus();
+  const notesRoot = notes.notesRoot;
+  const payload = {
+    ...journal,
+    notesRoot,
+    storedArticleCount: notes.articleCount,
+    storedAssetCount: notes.imageCount,
+    watchlistCount: listWatchlistItems().length,
+    stockCount: 0,
+    articleCount: notes.articleCount,
+    coreCount: 0,
+    watchCount: 0,
+    archiveCount: 0,
+    databaseDir: store.configuredDir || store.filePath,
+  };
+
+  const stockRoot = journal.resolved;
+  if (!stockRoot) {
+    return NextResponse.json(payload);
   }
 
   try {
-    const stocks = scanVaultStocks(status.resolved);
-    const articles = scanVaultArticles(status.resolved);
-    const articleCounts = articleCountBySymbol(status.resolved);
+    const stocks = scanVaultStocks(stockRoot);
     return NextResponse.json({
-      ...status,
+      ...payload,
       stockCount: stocks.length,
-      articleCount: articles.length,
-      uniqueArticleSymbols: articleCounts.size,
-      watchlistCount: listWatchlistItems().length,
       coreCount: stocks.filter((stock) => stock.category === "CORE").length,
       watchCount: stocks.filter((stock) => stock.category === "WATCH").length,
       archiveCount: stocks.filter((stock) => stock.category === "ARCHIVE").length,
+      articleCount: notes.articleCount || scanVaultArticles(stockRoot).length,
     });
   } catch (error) {
     return NextResponse.json(
       {
-        ...status,
+        ...payload,
         error: error instanceof Error ? error.message : "Vault 扫描失败。",
       },
       { status: 500 },
@@ -55,22 +66,24 @@ export async function POST(request: Request) {
     body = {};
   }
 
-  const vaultRoot = resolveVaultPath(body.vaultPath);
-  if (!vaultRoot) {
+  const journalRoot = resolveVaultPath(body.vaultPath);
+  if (!journalRoot) {
     return NextResponse.json(
-      { error: "未找到可用的 investment-vault，请先在设置中配置 VAULT_PATH。" },
+      { error: "未找到 Journal，请先填写 Journal 路径再导入到 Google Drive。" },
       { status: 404 },
     );
   }
 
   try {
     invalidateArticleCache();
-    const stocks = scanVaultStocks(vaultRoot);
-    const articleCounts = articleCountBySymbol(vaultRoot);
+    const copied = copyJournalToDriveVault(journalRoot);
+    const notesRoot = resolveNotesRoot() || copied.notesRoot;
+    const stocks = scanVaultStocks(journalRoot);
+    const articleCounts = articleCountBySymbol(notesRoot);
 
-    const importStocks = db.transaction(() => {
+    const importStocks = getDb().transaction(() => {
       if (body.replace) {
-        db.prepare("DELETE FROM watchlist_items").run();
+        getDb().prepare("DELETE FROM watchlist_items").run();
       }
 
       for (const stock of stocks) {
@@ -90,19 +103,25 @@ export async function POST(request: Request) {
         });
       }
 
-      db.prepare(
-        `INSERT INTO app_meta (key, value) VALUES ('vault_imported_at', ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      ).run(new Date().toISOString());
+      getDb()
+        .prepare(
+          `INSERT INTO app_meta (key, value) VALUES ('vault_imported_at', ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        )
+        .run(new Date().toISOString());
     });
 
     importStocks();
 
     const items = listWatchlistItems();
+    const notes = notesStatus();
     return NextResponse.json({
       ok: true,
-      vaultPath: vaultRoot,
+      vaultPath: journalRoot,
+      notesRoot,
       imported: stocks.length,
+      articles: notes.articleCount,
+      assets: notes.imageCount,
       core: items.filter((item) => item.category === "CORE").length,
       watch: items.filter((item) => item.category === "WATCH").length,
       archive: items.filter((item) => item.category === "ARCHIVE").length,
@@ -111,7 +130,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Vault import failed:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Vault 导入失败。" },
+      { error: error instanceof Error ? error.message : "导入失败。" },
       { status: 500 },
     );
   }

@@ -13,10 +13,14 @@ venv/
 # Local application data
 data/*.db
 data/*.db-*
+data/local-config.json
+data/assets/
+data/Vault/
 
 # Build output
 .next/
 next-env.d.ts
+tsconfig.tsbuildinfo
 dist/
 build/
 *.log

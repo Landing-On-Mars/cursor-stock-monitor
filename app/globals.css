@@ -192,9 +192,18 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .article-reader-backdrop {
   padding: 28px 48px;
 }
-.article-reader-body {
-  overflow: auto;
-  padding: 8px clamp(28px, 4vw, 56px) clamp(24px, 3vw, 40px);
+.article-editor {
+  background: #fbfcfb;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: #2a322d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  min-height: min(62vh, 640px);
+  padding: 14px 16px;
+  resize: vertical;
+  width: 100%;
 }
 .article-markdown {
   color: #2a322d;
@@ -418,6 +427,9 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .sync-vault-body li:last-child { border-bottom: 0; }
 .sync-vault-body li span { color: var(--muted); font-size: 10px; white-space: nowrap; }
 .settings-panel { padding-bottom: 18px; }
+.settings-panel + .settings-panel,
+.settings-panel + .inline-notice,
+.settings-panel + .inline-error { margin-top: 14px; }
 .settings-status {
   display: grid;
   gap: 10px;
@@ -485,7 +497,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .watch-category-watch { background: var(--amber-soft); color: var(--amber); }
 .watch-category-archive { background: #eef0f2; color: #65707a; }
 .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
-.row-actions button, .modal-head button {
+.row-actions button, .modal-head button:not(.btn) {
   align-items: center;
   background: transparent;
   border: 0;
@@ -497,7 +509,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   justify-content: center;
   width: 28px;
 }
-.row-actions button:hover, .modal-head button:hover { background: #edf1ed; color: var(--green); }
+.row-actions button:hover, .modal-head button:not(.btn):hover { background: #edf1ed; color: var(--green); }
 .row-actions button.move-action { font-size: 9px; gap: 4px; padding: 0 7px; white-space: nowrap; width: auto; }
 .row-actions button.danger-action:hover { background: var(--red-soft); color: var(--red); }
 .row-actions button:disabled { cursor: wait; opacity: .4; }

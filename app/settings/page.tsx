@@ -2,7 +2,9 @@
 
 import {
   CheckCircle2,
+  Database,
   FolderOpen,
+  HardDrive,
   LoaderCircle,
   RefreshCw,
   Settings,
@@ -13,12 +15,29 @@ type VaultStatus = {
   configured: string | null;
   resolved: string | null;
   available: boolean;
+  notesRoot?: string | null;
   stockCount?: number;
   coreCount?: number;
   watchCount?: number;
   archiveCount?: number;
   watchlistCount?: number;
+  articleCount?: number;
+  storedArticleCount?: number;
+  storedAssetCount?: number;
   uniqueArticleSymbols?: number;
+  error?: string;
+};
+
+type DatabaseStatus = {
+  available: boolean;
+  configuredDir: string | null;
+  envOverride: string | null;
+  filePath: string;
+  filename: string;
+  journalMode: string;
+  sizeBytes: number;
+  syncFolder: boolean;
+  watchlistCount: number;
   error?: string;
 };
 
@@ -27,11 +46,20 @@ async function readError(response: Response) {
   return body?.error ?? "操作失败";
 }
 
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function SettingsPage() {
   const [status, setStatus] = useState<VaultStatus | null>(null);
+  const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus | null>(null);
   const [pathInput, setPathInput] = useState("");
+  const [databaseDirInput, setDatabaseDirInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingDatabase, setSavingDatabase] = useState(false);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -46,19 +74,40 @@ export default function SettingsPage() {
     setPathInput(data.configured || data.resolved || "");
   }
 
+  async function refreshDatabase() {
+    const response = await fetch("/api/database/config", { cache: "no-store" });
+    const data = (await response.json()) as DatabaseStatus & { error?: string };
+    if (!response.ok) {
+      throw new Error(data.error || (await readError(response)));
+    }
+    setDatabaseStatus(data);
+    setDatabaseDirInput(data.configuredDir || data.filePath || "");
+  }
+
   useEffect(() => {
     let active = true;
 
     void (async () => {
       try {
-        const response = await fetch("/api/vault/import", { cache: "no-store" });
-        const data = (await response.json()) as VaultStatus;
+        const [vaultResponse, databaseResponse] = await Promise.all([
+          fetch("/api/vault/import", { cache: "no-store" }),
+          fetch("/api/database/config", { cache: "no-store" }),
+        ]);
+        const data = (await vaultResponse.json()) as VaultStatus;
+        const databaseData = (await databaseResponse.json()) as DatabaseStatus & {
+          error?: string;
+        };
         if (!active) return;
-        if (!response.ok && !data.resolved) {
+        if (!vaultResponse.ok && !data.resolved) {
           throw new Error(data.error || "Vault 状态加载失败");
+        }
+        if (!databaseResponse.ok) {
+          throw new Error(databaseData.error || "数据库状态加载失败");
         }
         setStatus(data);
         setPathInput(data.configured || data.resolved || "");
+        setDatabaseStatus(databaseData);
+        setDatabaseDirInput(databaseData.configuredDir || databaseData.filePath || "");
       } catch (requestError: unknown) {
         if (!active) return;
         setError(
@@ -96,6 +145,28 @@ export default function SettingsPage() {
     }
   }
 
+  async function saveDatabaseDir(event: FormEvent) {
+    event.preventDefault();
+    setSavingDatabase(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/database/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: databaseDirInput }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      await refreshDatabase();
+      setMessage("数据库同步文件夹已保存。Google Drive 同步完成后，另一台电脑填同一文件夹即可。");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "保存失败");
+    } finally {
+      setSavingDatabase(false);
+    }
+  }
+
   async function importVault() {
     setImporting(true);
     setError("");
@@ -110,13 +181,15 @@ export default function SettingsPage() {
       if (!response.ok) throw new Error(await readError(response));
       const payload = (await response.json()) as {
         imported: number;
+        articles?: number;
+        assets?: number;
         core: number;
         watch: number;
         archive: number;
       };
-      await refreshStatus();
+      await Promise.all([refreshStatus(), refreshDatabase()]);
       setMessage(
-        `已导入 ${payload.imported} 只股票（核心 ${payload.core} · 观察 ${payload.watch} · 路人 ${payload.archive}）。`,
+        `已拷入 Drive Vault：文章 ${payload.articles ?? 0} 篇、图片 ${payload.assets ?? 0} 张；自选 ${payload.imported} 只（核心 ${payload.core} · 观察 ${payload.watch} · 路人 ${payload.archive}）。请用 Obsidian 打开 Northstar\\Vault。`,
       );
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "导入失败");
@@ -131,15 +204,99 @@ export default function SettingsPage() {
         <div>
           <p className="eyebrow">Preferences</p>
           <h1>设置</h1>
-          <p className="page-subtitle">配置 Obsidian Vault 路径，并将 stocks-index 导入自选股。</p>
+          <p className="page-subtitle">
+            自选放在 Drive 里的数据库；研究笔记是同一目录下的 Vault，看板和 Obsidian 编辑同一批
+            Markdown。
+          </p>
         </div>
       </header>
 
       <section className="card settings-panel">
         <div className="card-head">
           <div>
-            <h2>Investment Vault</h2>
-            <p>只读扫描 Stocks/CN · HK · US 与 Articles，不修改 Vault 文件</p>
+            <h2>Google Drive 同步文件夹</h2>
+            <p>家里和办公室填同一个镜像目录：数据库 + Vault 笔记都在这里</p>
+          </div>
+          <span className="icon-box">
+            <HardDrive size={15} />
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="watchlist-empty">
+            <LoaderCircle className="spin" size={18} />
+            <span>正在检测数据库…</span>
+          </div>
+        ) : (
+          <>
+            <div className="settings-status">
+              <div className="metric">
+                <small>状态</small>
+                <strong className={databaseStatus?.available ? "positive" : "negative"}>
+                  {databaseStatus?.available ? "已连接" : "未找到"}
+                </strong>
+              </div>
+              <div className="metric">
+                <small>文件大小</small>
+                <strong>{formatBytes(databaseStatus?.sizeBytes ?? 0)}</strong>
+              </div>
+              <div className="metric">
+                <small>自选数量</small>
+                <strong>{databaseStatus?.watchlistCount ?? 0}</strong>
+              </div>
+              <div className="metric">
+                <small>Vault 文章 / 图片</small>
+                <strong>
+                  {status?.storedArticleCount ?? 0} / {status?.storedAssetCount ?? 0}
+                </strong>
+              </div>
+            </div>
+
+            <form className="settings-form" onSubmit={saveDatabaseDir}>
+              <label className="field field-full">
+                <span>Google Drive 文件夹</span>
+                <div className="stock-search-input">
+                  <Database size={15} />
+                  <input
+                    disabled={Boolean(databaseStatus?.envOverride)}
+                    onChange={(event) => setDatabaseDirInput(event.target.value)}
+                    placeholder="C:\Users\ht.tu\My Drive\Northstar"
+                    value={databaseDirInput}
+                  />
+                </div>
+              </label>
+              <p className="settings-hint">
+                填桌面客户端的<strong>镜像</strong>文件夹（不要用流式文件）。会写入
+                <code>dashboard.db</code> 和 <code>Vault/</code>
+                。Obsidian 请打开其中的 <code>Vault</code>
+                。不要两台电脑同时开 Northstar。当前数据库：
+                <code>{databaseStatus?.filePath || "—"}</code>
+                {databaseStatus?.envOverride ? (
+                  <>
+                    {" "}
+                    环境变量 <code>DATABASE_PATH</code> 已覆盖此设置。
+                  </>
+                ) : null}
+              </p>
+              <div className="modal-actions" style={{ padding: "0 0 4px" }}>
+                <button
+                  className="btn btn-primary"
+                  disabled={savingDatabase || Boolean(databaseStatus?.envOverride)}
+                  type="submit"
+                >
+                  {savingDatabase ? "保存中…" : "保存同步文件夹"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </section>
+
+      <section className="card settings-panel">
+        <div className="card-head">
+          <div>
+            <h2>从 Journal 导入</h2>
+            <p>一次性把 Articles、Stocks 拷到 Drive 的 Vault，之后两边改同一批 md</p>
           </div>
           <span className="icon-box">
             <Settings size={15} />
@@ -179,19 +336,32 @@ export default function SettingsPage() {
 
             <form className="settings-form" onSubmit={savePath}>
               <label className="field field-full">
-                <span>Vault 路径</span>
+                <span>Journal 路径（仅导入用）</span>
                 <div className="stock-search-input">
                   <FolderOpen size={15} />
                   <input
                     onChange={(event) => setPathInput(event.target.value)}
-                    placeholder="/path/to/investment-vault"
+                    placeholder="C:\Users\ht.tu\Documents\Journal"
                     value={pathInput}
                   />
                 </div>
               </label>
               <p className="settings-hint">
-                也可设置环境变量 <code>VAULT_PATH</code>。当前解析：
+                导入后看板读写 Drive 里的 Markdown，Journal 可留作备份。Obsidian 打开：
+                <code>{status?.notesRoot || "（导入后显示）"}</code>
+                。Journal 解析：
                 <code>{status?.resolved || "—"}</code>
+                {typeof status?.storedArticleCount === "number" ? (
+                  <>
+                    。Drive Vault 文章 {status.storedArticleCount} 篇
+                    {typeof status.storedAssetCount === "number"
+                      ? ` · 图片 ${status.storedAssetCount} 张`
+                      : ""}
+                    。
+                  </>
+                ) : (
+                  "。"
+                )}
               </p>
               <div className="modal-actions" style={{ padding: "0 0 4px" }}>
                 <button className="btn" disabled={saving} type="submit">
@@ -208,22 +378,24 @@ export default function SettingsPage() {
                   ) : (
                     <RefreshCw size={14} />
                   )}
-                  {importing ? "导入中…" : "导入 75 只股票"}
+                  {importing ? "导入中…" : "拷入 Drive Vault 并导入自选"}
                 </button>
               </div>
             </form>
-
-            {message && (
-              <div className="inline-notice">
-                <CheckCircle2 size={14} /> {message}
-              </div>
-            )}
-            {(error || status?.error) && (
-              <div className="inline-error">{error || status?.error}</div>
-            )}
           </>
         )}
       </section>
+
+      {message && (
+        <div className="inline-notice">
+          <CheckCircle2 size={14} /> {message}
+        </div>
+      )}
+      {(error || status?.error || databaseStatus?.error) && (
+        <div className="inline-error">
+          {error || status?.error || databaseStatus?.error}
+        </div>
+      )}
     </div>
   );
 }

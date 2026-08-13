@@ -1,7 +1,7 @@
 import { FileText } from "lucide-react";
 import Link from "next/link";
+import { resolveNotesRoot } from "@/lib/notes-root";
 import { scanVaultArticles, type VaultArticle } from "@/lib/vault/articles";
-import { resolveVaultPath } from "@/lib/vault/path";
 
 function marketBadge(article: VaultArticle) {
   const symbol = article.symbols[0]?.toUpperCase() ?? "";
@@ -45,36 +45,16 @@ type RecentVaultNotesProps = {
 };
 
 export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
-  const vaultRoot = resolveVaultPath();
-
-  if (!vaultRoot) {
-    return (
-      <article className="card">
-        <div className="card-head">
-          <div>
-            <h2>最近研究笔记</h2>
-            <p>来自 Obsidian vault</p>
-          </div>
-          <Link href="/settings" className="text-link">
-            配置 Vault
-          </Link>
-        </div>
-        <div className="watchlist-empty">
-          <FileText size={18} />
-          <strong>还没有连接到 Vault</strong>
-          <span>在设置中指定 investment-vault 路径后，这里会显示 Articles。</span>
-        </div>
-      </article>
-    );
-  }
-
+  const notesRoot = resolveNotesRoot();
   let articles: VaultArticle[] = [];
   let error = "";
 
   try {
-    articles = scanVaultArticles(vaultRoot).slice(0, limit);
+    if (notesRoot) {
+      articles = scanVaultArticles(notesRoot).slice(0, limit);
+    }
   } catch (scanError) {
-    error = scanError instanceof Error ? scanError.message : "文章扫描失败";
+    error = scanError instanceof Error ? scanError.message : "文章读取失败";
   }
 
   return (
@@ -84,12 +64,14 @@ export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
           <h2>最近研究笔记</h2>
           <p>
             {error
-              ? "Vault 读取失败"
-              : `来自 Articles · 最近 ${articles.length} 篇`}
+              ? "读取失败"
+              : articles.length > 0
+                ? `Drive Vault · 最近 ${articles.length} 篇`
+                : "还没有导入笔记"}
           </p>
         </div>
-        <Link href="/research" className="text-link">
-          查看研究
+        <Link href={articles.length > 0 ? "/research" : "/settings"} className="text-link">
+          {articles.length > 0 ? "查看研究" : "去导入"}
         </Link>
       </div>
 
@@ -98,8 +80,8 @@ export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
       ) : articles.length === 0 ? (
         <div className="watchlist-empty">
           <FileText size={18} />
-          <strong>Articles 目录是空的</strong>
-          <span>在 Vault 中添加研究笔记后会显示在这里。</span>
+          <strong>Drive 里还没有 Articles</strong>
+          <span>在设置中从 Journal 拷入一次，之后可在看板或 Obsidian 编辑同一文件。</span>
         </div>
       ) : (
         <div className="notes-list">

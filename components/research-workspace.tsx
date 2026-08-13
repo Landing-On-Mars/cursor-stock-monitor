@@ -168,7 +168,7 @@ export function ResearchWorkspace({
                       : `共 ${visibleArticles.length} 篇`}
                   </p>
                 </div>
-                <span className="obsidian-label">OBSIDIAN</span>
+                <span className="obsidian-label">Vault</span>
               </div>
 
               {articlesError && <div className="inline-error">{articlesError}</div>}
