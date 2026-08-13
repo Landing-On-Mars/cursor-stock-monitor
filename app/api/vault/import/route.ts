@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { databaseStatus, getDb } from "@/lib/db";
 import {
-  articleCountBySymbol,
-  invalidateArticleCache,
-  scanVaultArticles,
-} from "@/lib/vault/articles";
+  articleCountByStoredSymbol,
+  storedArticleCount,
+} from "@/lib/store-articles";
+import { countStoreAssets } from "@/lib/store-assets";
+import { importVaultArticles } from "@/lib/store-import";
+import { invalidateArticleCache } from "@/lib/vault/articles";
 import { resolveVaultPath, vaultStatus } from "@/lib/vault/path";
 import { scanVaultStocks } from "@/lib/vault/stocks";
 import { listWatchlistItems, upsertVaultWatchlistItem } from "@/lib/watchlist-store";
@@ -13,25 +15,29 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const status = vaultStatus();
+  const store = databaseStatus();
+  const payload = {
+    ...status,
+    storedArticleCount: storedArticleCount(),
+    storedAssetCount: countStoreAssets(),
+    watchlistCount: listWatchlistItems().length,
+    stockCount: 0,
+    articleCount: storedArticleCount(),
+    coreCount: 0,
+    watchCount: 0,
+    archiveCount: 0,
+    databaseDir: store.configuredDir || store.filePath,
+  };
+
   if (!status.resolved) {
-    return NextResponse.json({
-      ...status,
-      stockCount: 0,
-      articleCount: 0,
-      watchlistCount: listWatchlistItems().length,
-    });
+    return NextResponse.json(payload);
   }
 
   try {
     const stocks = scanVaultStocks(status.resolved);
-    const articles = scanVaultArticles(status.resolved);
-    const articleCounts = articleCountBySymbol(status.resolved);
     return NextResponse.json({
-      ...status,
+      ...payload,
       stockCount: stocks.length,
-      articleCount: articles.length,
-      uniqueArticleSymbols: articleCounts.size,
-      watchlistCount: listWatchlistItems().length,
       coreCount: stocks.filter((stock) => stock.category === "CORE").length,
       watchCount: stocks.filter((stock) => stock.category === "WATCH").length,
       archiveCount: stocks.filter((stock) => stock.category === "ARCHIVE").length,
@@ -39,7 +45,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       {
-        ...status,
+        ...payload,
         error: error instanceof Error ? error.message : "Vault 扫描失败。",
       },
       { status: 500 },
@@ -58,7 +64,7 @@ export async function POST(request: Request) {
   const vaultRoot = resolveVaultPath(body.vaultPath);
   if (!vaultRoot) {
     return NextResponse.json(
-      { error: "未找到可用的 investment-vault，请先在设置中配置 VAULT_PATH。" },
+      { error: "未找到 Journal / investment-vault，请先填写 Vault 路径再导入。" },
       { status: 404 },
     );
   }
@@ -66,11 +72,12 @@ export async function POST(request: Request) {
   try {
     invalidateArticleCache();
     const stocks = scanVaultStocks(vaultRoot);
-    const articleCounts = articleCountBySymbol(vaultRoot);
+    const articleImport = importVaultArticles(vaultRoot);
+    const articleCounts = articleCountByStoredSymbol();
 
-    const importStocks = db.transaction(() => {
+    const importStocks = getDb().transaction(() => {
       if (body.replace) {
-        db.prepare("DELETE FROM watchlist_items").run();
+        getDb().prepare("DELETE FROM watchlist_items").run();
       }
 
       for (const stock of stocks) {
@@ -90,10 +97,12 @@ export async function POST(request: Request) {
         });
       }
 
-      db.prepare(
-        `INSERT INTO app_meta (key, value) VALUES ('vault_imported_at', ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      ).run(new Date().toISOString());
+      getDb()
+        .prepare(
+          `INSERT INTO app_meta (key, value) VALUES ('vault_imported_at', ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        )
+        .run(new Date().toISOString());
     });
 
     importStocks();
@@ -103,6 +112,8 @@ export async function POST(request: Request) {
       ok: true,
       vaultPath: vaultRoot,
       imported: stocks.length,
+      articles: articleImport.articleCount,
+      assets: countStoreAssets(),
       core: items.filter((item) => item.category === "CORE").length,
       watch: items.filter((item) => item.category === "WATCH").length,
       archive: items.filter((item) => item.category === "ARCHIVE").length,
@@ -111,7 +122,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Vault import failed:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Vault 导入失败。" },
+      { error: error instanceof Error ? error.message : "导入失败。" },
       { status: 500 },
     );
   }

@@ -20,6 +20,9 @@ type VaultStatus = {
   watchCount?: number;
   archiveCount?: number;
   watchlistCount?: number;
+  articleCount?: number;
+  storedArticleCount?: number;
+  storedAssetCount?: number;
   uniqueArticleSymbols?: number;
   error?: string;
 };
@@ -34,6 +37,7 @@ type DatabaseStatus = {
   sizeBytes: number;
   syncFolder: boolean;
   watchlistCount: number;
+  articleCount?: number;
   error?: string;
 };
 
@@ -177,13 +181,15 @@ export default function SettingsPage() {
       if (!response.ok) throw new Error(await readError(response));
       const payload = (await response.json()) as {
         imported: number;
+        articles?: number;
+        assets?: number;
         core: number;
         watch: number;
         archive: number;
       };
       await Promise.all([refreshStatus(), refreshDatabase()]);
       setMessage(
-        `已导入 ${payload.imported} 只股票（核心 ${payload.core} · 观察 ${payload.watch} · 路人 ${payload.archive}）。`,
+        `已导入 ${payload.imported} 只股票（核心 ${payload.core} · 观察 ${payload.watch} · 路人 ${payload.archive}），文章 ${payload.articles ?? 0} 篇，图片 ${payload.assets ?? 0} 张。之后只需 Google Drive 同步。`,
       );
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "导入失败");
@@ -199,7 +205,7 @@ export default function SettingsPage() {
           <p className="eyebrow">Preferences</p>
           <h1>设置</h1>
           <p className="page-subtitle">
-            指定 Google Drive 同步文件夹存放数据库，并配置 Obsidian Vault 路径。
+            指定 Google Drive 同步文件夹。Journal 只需导入一次，之后不再读取。
           </p>
         </div>
       </header>
@@ -208,7 +214,7 @@ export default function SettingsPage() {
         <div className="card-head">
           <div>
             <h2>数据库同步文件夹</h2>
-            <p>把 SQLite 放到 Google Drive 镜像目录，家里和办公室共用一份 dashboard.db</p>
+            <p>SQLite 与文章配图都放在这个镜像目录，家里和办公室共用</p>
           </div>
           <span className="icon-box">
             <HardDrive size={15} />
@@ -238,8 +244,11 @@ export default function SettingsPage() {
                 <strong>{databaseStatus?.watchlistCount ?? 0}</strong>
               </div>
               <div className="metric">
-                <small>同步方式</small>
-                <strong>{databaseStatus?.syncFolder ? "Google Drive 文件夹" : "本机 data"}</strong>
+                <small>文章 / 图片</small>
+                <strong>
+                  {databaseStatus?.articleCount ?? status?.storedArticleCount ?? 0} /{" "}
+                  {status?.storedAssetCount ?? 0}
+                </strong>
               </div>
             </div>
 
@@ -257,8 +266,8 @@ export default function SettingsPage() {
                 </div>
               </label>
               <p className="settings-hint">
-                填桌面客户端的<strong>镜像</strong>文件夹（不要用流式文件）。两台电脑各填自己的本地路径，文件名都是
-                <code>{databaseStatus?.filename || "dashboard.db"}</code>
+                填桌面客户端的<strong>镜像</strong>文件夹（不要用流式文件）。会写入
+                <code>dashboard.db</code> 和 <code>assets/</code>
                 。不要两边同时开 Northstar。当前文件：
                 <code>{databaseStatus?.filePath || "—"}</code>
                 {databaseStatus?.envOverride ? (
@@ -285,8 +294,8 @@ export default function SettingsPage() {
       <section className="card settings-panel">
         <div className="card-head">
           <div>
-            <h2>Investment Vault</h2>
-            <p>只读扫描 Stocks/CN · HK · US 与 Articles，不修改 Vault 文件</p>
+            <h2>从 Journal 导入</h2>
+            <p>一次性把股票、文章和配图拷进 Google Drive 文件夹，之后不再依赖 Journal</p>
           </div>
           <span className="icon-box">
             <Settings size={15} />
@@ -326,20 +335,32 @@ export default function SettingsPage() {
 
             <form className="settings-form" onSubmit={savePath}>
               <label className="field field-full">
-                <span>Vault 路径</span>
+                <span>Journal / Vault 路径</span>
                 <div className="stock-search-input">
                   <FolderOpen size={15} />
                   <input
                     onChange={(event) => setPathInput(event.target.value)}
-                    placeholder="/path/to/investment-vault"
+                    placeholder="C:\Users\ht.tu\Documents\Journal"
                     value={pathInput}
                   />
                 </div>
               </label>
               <p className="settings-hint">
-                也可设置环境变量 <code>VAULT_PATH</code>。当前解析：
+                仅用于导入。导入后看板读写 Google Drive 里的
+                <code>dashboard.db</code> 和 <code>assets</code>
+                ，Journal 可留作备份。当前解析：
                 <code>{status?.resolved || "—"}</code>
-                。文章仍在 Vault 里，不同步进 dashboard.db。
+                {typeof status?.storedArticleCount === "number" ? (
+                  <>
+                    。已入库文章 {status.storedArticleCount} 篇
+                    {typeof status.storedAssetCount === "number"
+                      ? ` · 图片 ${status.storedAssetCount} 张`
+                      : ""}
+                    。
+                  </>
+                ) : (
+                  "。"
+                )}
               </p>
               <div className="modal-actions" style={{ padding: "0 0 4px" }}>
                 <button className="btn" disabled={saving} type="submit">
@@ -356,7 +377,7 @@ export default function SettingsPage() {
                   ) : (
                     <RefreshCw size={14} />
                   )}
-                  {importing ? "导入中…" : "导入 75 只股票"}
+                  {importing ? "导入中…" : "导入股票和文章"}
                 </button>
               </div>
             </form>

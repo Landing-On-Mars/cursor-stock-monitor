@@ -37,6 +37,14 @@ export function databaseUsesSyncFolder() {
   return !envDatabasePath() && Boolean(readLocalConfig().databaseDir?.trim());
 }
 
+export function resolveDatabaseDir() {
+  return path.dirname(resolveDatabasePath());
+}
+
+export function resolveAssetsDir() {
+  return path.join(resolveDatabaseDir(), "assets");
+}
+
 function ensureDatabaseDir(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
@@ -133,6 +141,22 @@ function createDatabase(filePath: string) {
     CREATE TABLE IF NOT EXISTS app_meta (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS articles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      path TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT '',
+      author TEXT NOT NULL DEFAULT '',
+      published_at TEXT NOT NULL DEFAULT '',
+      saved_at TEXT NOT NULL DEFAULT '',
+      symbols TEXT NOT NULL DEFAULT '[]',
+      industries TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'inbox',
+      tags TEXT NOT NULL DEFAULT '[]',
+      content TEXT NOT NULL DEFAULT '',
+      imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
@@ -257,6 +281,11 @@ export function setDatabaseDir(input: string) {
     if (!fs.existsSync(nextPath) && fs.existsSync(currentPath)) {
       fs.copyFileSync(currentPath, nextPath);
     }
+    const currentAssets = path.join(path.dirname(currentPath), "assets");
+    const nextAssets = path.join(directory, "assets");
+    if (!fs.existsSync(nextAssets) && fs.existsSync(currentAssets)) {
+      fs.cpSync(currentAssets, nextAssets, { recursive: true });
+    }
     closeDatabase();
   }
 
@@ -271,6 +300,7 @@ export function databaseStatus() {
   const configuredDir = readLocalConfig().databaseDir?.trim() || "";
   let sizeBytes = 0;
   let watchlistCount = 0;
+  let articleCount = 0;
   let journalMode = "";
   let available = false;
   let error = "";
@@ -281,6 +311,11 @@ export function databaseStatus() {
     sizeBytes = available ? fs.statSync(filePath).size : 0;
     watchlistCount = (
       database.prepare("SELECT COUNT(*) AS count FROM watchlist_items").get() as {
+        count: number;
+      }
+    ).count;
+    articleCount = (
+      database.prepare("SELECT COUNT(*) AS count FROM articles").get() as {
         count: number;
       }
     ).count;
@@ -299,6 +334,7 @@ export function databaseStatus() {
     sizeBytes,
     syncFolder: databaseUsesSyncFolder(),
     watchlistCount,
+    articleCount,
     error: error || undefined,
   };
 }

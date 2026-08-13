@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readStoreAsset } from "@/lib/store-assets";
 import { readVaultAsset } from "@/lib/vault/assets";
 import { resolveVaultPath } from "@/lib/vault/path";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const vaultRoot = resolveVaultPath();
-  if (!vaultRoot) {
-    return NextResponse.json(
-      { error: "未找到 investment-vault。" },
-      { status: 404 },
-    );
-  }
-
   const assetPath = request.nextUrl.searchParams.get("path")?.trim();
   if (!assetPath) {
     return NextResponse.json({ error: "请提供资源 path。" }, { status: 400 });
   }
 
   try {
-    const asset = readVaultAsset(vaultRoot, assetPath);
+    const normalized = assetPath.replace(/\\/g, "/");
+    const asset = normalized.startsWith("assets/")
+      ? readStoreAsset(normalized)
+      : (() => {
+          const vaultRoot = resolveVaultPath();
+          if (!vaultRoot) {
+            throw new Error(`找不到图片：${normalized}`);
+          }
+          return readVaultAsset(vaultRoot, normalized);
+        })();
     return new NextResponse(asset.buffer, {
       headers: {
         "Content-Type": asset.mimeType,

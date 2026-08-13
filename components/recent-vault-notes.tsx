@@ -1,9 +1,8 @@
 import { FileText } from "lucide-react";
 import Link from "next/link";
-import { scanVaultArticles, type VaultArticle } from "@/lib/vault/articles";
-import { resolveVaultPath } from "@/lib/vault/path";
+import { listStoredArticles, type StoredArticle } from "@/lib/store-articles";
 
-function marketBadge(article: VaultArticle) {
+function marketBadge(article: StoredArticle) {
   const symbol = article.symbols[0]?.toUpperCase() ?? "";
   if (!symbol) return "研";
   if (symbol.endsWith(".HK")) return "HK";
@@ -30,7 +29,7 @@ function formatNoteDate(value: string) {
   }).format(new Date(parsed));
 }
 
-function noteMeta(article: VaultArticle) {
+function noteMeta(article: StoredArticle) {
   const parts: string[] = [];
   if (article.symbols.length > 0) {
     parts.push(article.symbols.slice(0, 2).join(" · "));
@@ -45,36 +44,13 @@ type RecentVaultNotesProps = {
 };
 
 export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
-  const vaultRoot = resolveVaultPath();
-
-  if (!vaultRoot) {
-    return (
-      <article className="card">
-        <div className="card-head">
-          <div>
-            <h2>最近研究笔记</h2>
-            <p>来自 Obsidian vault</p>
-          </div>
-          <Link href="/settings" className="text-link">
-            配置 Vault
-          </Link>
-        </div>
-        <div className="watchlist-empty">
-          <FileText size={18} />
-          <strong>还没有连接到 Vault</strong>
-          <span>在设置中指定 investment-vault 路径后，这里会显示 Articles。</span>
-        </div>
-      </article>
-    );
-  }
-
-  let articles: VaultArticle[] = [];
+  let articles: StoredArticle[] = [];
   let error = "";
 
   try {
-    articles = scanVaultArticles(vaultRoot).slice(0, limit);
+    articles = listStoredArticles().slice(0, limit);
   } catch (scanError) {
-    error = scanError instanceof Error ? scanError.message : "文章扫描失败";
+    error = scanError instanceof Error ? scanError.message : "文章读取失败";
   }
 
   return (
@@ -84,12 +60,14 @@ export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
           <h2>最近研究笔记</h2>
           <p>
             {error
-              ? "Vault 读取失败"
-              : `来自 Articles · 最近 ${articles.length} 篇`}
+              ? "读取失败"
+              : articles.length > 0
+                ? `来自同步库 · 最近 ${articles.length} 篇`
+                : "还没有导入文章"}
           </p>
         </div>
-        <Link href="/research" className="text-link">
-          查看研究
+        <Link href={articles.length > 0 ? "/research" : "/settings"} className="text-link">
+          {articles.length > 0 ? "查看研究" : "去导入"}
         </Link>
       </div>
 
@@ -98,8 +76,8 @@ export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
       ) : articles.length === 0 ? (
         <div className="watchlist-empty">
           <FileText size={18} />
-          <strong>Articles 目录是空的</strong>
-          <span>在 Vault 中添加研究笔记后会显示在这里。</span>
+          <strong>同步库里还没有文章</strong>
+          <span>在设置中从 Journal 导入一次，之后只需 Google Drive 同步。</span>
         </div>
       ) : (
         <div className="notes-list">
