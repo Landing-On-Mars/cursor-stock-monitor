@@ -294,6 +294,27 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   color: var(--red);
   text-decoration: line-through;
 }
+.article-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.article-source-input {
+  background: #fbfcfb;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  min-width: 10em;
+  padding: 3px 8px;
+  width: min(240px, 100%);
+}
+.article-source-input:focus {
+  border-color: #7fa38f;
+  box-shadow: 0 0 0 3px rgba(69, 125, 91, .1);
+  outline: none;
+}
 .article-markdown {
   color: #2a322d;
   font-family: var(--font-noto), "Noto Sans SC", sans-serif;

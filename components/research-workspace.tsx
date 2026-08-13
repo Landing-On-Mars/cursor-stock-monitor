@@ -200,7 +200,7 @@ export function ResearchWorkspace({
                   type="button"
                 >
                   <Lightbulb size={14} />
-                  记录我的想法
+                  记录一笔
                 </button>
               </div>
 
@@ -251,6 +251,10 @@ export function ResearchWorkspace({
       <ArticleReader
         article={openedArticle}
         onClose={() => setOpenedArticle(null)}
+        onSaved={(article) => {
+          setOpenedArticle(article);
+          if (selected) void loadArticles(selected.symbol);
+        }}
       />
 
       {selected && ideaOpen ? (

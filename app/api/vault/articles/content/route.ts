@@ -24,9 +24,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  let body: { path?: string; content?: string };
+  let body: { path?: string; content?: string; source?: string };
   try {
-    body = (await request.json()) as { path?: string; content?: string };
+    body = (await request.json()) as {
+      path?: string;
+      content?: string;
+      source?: string;
+    };
   } catch {
     return NextResponse.json({ error: "请求内容不是有效的 JSON。" }, { status: 400 });
   }
@@ -41,7 +45,12 @@ export async function PUT(request: NextRequest) {
 
   try {
     const notesRoot = notesRootOrThrow();
-    writeVaultArticle(notesRoot, articlePath, body.content);
+    writeVaultArticle(
+      notesRoot,
+      articlePath,
+      body.content,
+      typeof body.source === "string" ? { source: body.source } : undefined,
+    );
     return NextResponse.json(payload(notesRoot, articlePath));
   } catch (error) {
     const message = error instanceof Error ? error.message : "保存文章失败。";

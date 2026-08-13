@@ -175,14 +175,16 @@ async function readError(response: Response) {
 type ArticleReaderProps = {
   article: ArticleSummary | null;
   onClose: () => void;
+  onSaved?: (article: ArticleSummary) => void;
 };
 
-export function ArticleReader({ article, onClose }: ArticleReaderProps) {
+export function ArticleReader({ article, onClose, onSaved }: ArticleReaderProps) {
   const [detail, setDetail] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [sourceDraft, setSourceDraft] = useState("");
   const [error, setError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -210,6 +212,7 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
         if (!active) return;
         setDetail(data);
         setDraft(data.rawContent || "");
+        setSourceDraft(data.source || "");
       } catch (requestError: unknown) {
         if (!active) return;
         setError(
@@ -247,13 +250,19 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
       const response = await fetch("/api/vault/articles/content", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: article.path, content: draft }),
+        body: JSON.stringify({
+          path: article.path,
+          content: draft,
+          source: sourceDraft,
+        }),
       });
       if (!response.ok) throw new Error(await readError(response));
       const data = (await response.json()) as ArticleDetail;
       setDetail(data);
       setDraft(data.rawContent || draft);
+      setSourceDraft(data.source || sourceDraft);
       setEditing(false);
+      onSaved?.(data);
     } catch (requestError: unknown) {
       setError(requestError instanceof Error ? requestError.message : "保存失败");
     } finally {
@@ -278,11 +287,24 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
               <FileText size={13} /> {article.path}
             </p>
             <h2 id="article-reader-title">{detail?.title || article.title}</h2>
-            <p>
-              {(detail?.publishedAt || article.publishedAt || article.savedAt || "未知日期") +
-                (detail?.source || article.source
-                  ? ` · ${detail?.source || article.source}`
-                  : "")}
+            <p className="article-meta">
+              <span>
+                {detail?.publishedAt || article.publishedAt || article.savedAt || "未知日期"}
+              </span>
+              {editing ? (
+                <>
+                  <span> · </span>
+                  <input
+                    aria-label="来源"
+                    className="article-source-input"
+                    onChange={(event) => setSourceDraft(event.target.value)}
+                    placeholder="来源，例如：我的想法"
+                    value={sourceDraft}
+                  />
+                </>
+              ) : detail?.source || article.source ? (
+                <span> · {detail?.source || article.source}</span>
+              ) : null}
             </p>
           </div>
           <div className="article-reader-actions">
@@ -291,6 +313,7 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
                 className="btn"
                 onClick={() => {
                   setDraft(detail.rawContent || "");
+                  setSourceDraft(detail.source || "");
                   setEditing(true);
                 }}
                 type="button"
@@ -315,6 +338,7 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
                   disabled={saving}
                   onClick={() => {
                     setDraft(detail?.rawContent || "");
+                    setSourceDraft(detail?.source || "");
                     setEditing(false);
                     setError("");
                   }}

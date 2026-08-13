@@ -51,6 +51,7 @@ export function IdeaComposer({
 }: IdeaComposerProps) {
   const [date, setDate] = useState(todayLocal);
   const [title, setTitle] = useState("");
+  const [source, setSource] = useState("我的想法");
   const [stance, setStance] = useState("");
   const [content, setContent] = useState(DEFAULT_BODY);
   const [saving, setSaving] = useState(false);
@@ -80,7 +81,7 @@ export function IdeaComposer({
           date,
           content: body,
           symbols: [symbol],
-          source: "我的想法",
+          source: source.trim() || "我的想法",
         }),
       });
       if (!response.ok) throw new Error(await readError(response));
@@ -107,7 +108,7 @@ export function IdeaComposer({
             <p className="obsidian-label" style={{ marginBottom: 6 }}>
               <Lightbulb size={13} /> {symbol} · {name}
             </p>
-            <h2 id="idea-composer-title">记录我的想法</h2>
+            <h2 id="idea-composer-title">记录一笔</h2>
             <p>写入 Drive Vault 的 Articles，Obsidian 打开同一文件即可看到。</p>
           </div>
           <button aria-label="关闭" onClick={onClose} type="button">
@@ -126,6 +127,14 @@ export function IdeaComposer({
                 required
                 type="date"
                 value={date}
+              />
+            </label>
+            <label className="field">
+              <span>来源</span>
+              <input
+                onChange={(event) => setSource(event.target.value)}
+                placeholder="我的想法"
+                value={source}
               />
             </label>
             <label className="field">
