@@ -1,7 +1,10 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Heading1, Heading2, Heading3, Highlighter, Strikethrough } from "lucide-react";
+import { Baseline, Heading1, Heading2, Heading3, Highlighter } from "lucide-react";
+
+const RED_BEFORE = '<span style="color:#c64c4c">';
+const RED_AFTER = "</span>";
 
 type MarkdownToolbarProps = {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -90,12 +93,13 @@ export function MarkdownToolbar({
         高亮
       </button>
       <button
-        onClick={() => wrap("~~", "~~", "划掉")}
-        title="红色删除线"
+        className="md-toolbar-red"
+        onClick={() => wrap(RED_BEFORE, RED_AFTER, "强调")}
+        title="红色文字"
         type="button"
       >
-        <Strikethrough size={15} />
-        红线
+        <Baseline size={15} />
+        红色
       </button>
     </div>
   );

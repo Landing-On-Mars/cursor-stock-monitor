@@ -57,7 +57,7 @@ function splitArticleContent(content: string): ContentPart[] {
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   const pattern =
-    /(\*\*[^*]+\*\*|==[^=]+==|~~[^~]+~~|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+    /(<span style="color:\s*(?:#c64c4c|red);?">[\s\S]*?<\/span>|\*\*[^*]+\*\*|==[^=]+==|~~[^~]+~~|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -67,7 +67,14 @@ function renderInline(text: string): ReactNode[] {
       nodes.push(text.slice(last, match.index));
     }
     const token = match[0];
-    if (token.startsWith("**")) {
+    if (token.startsWith("<span")) {
+      const inner = token.replace(/^<span[^>]*>/, "").replace(/<\/span>$/, "");
+      nodes.push(
+        <span className="article-red" key={`r-${key++}`}>
+          {renderInline(inner)}
+        </span>,
+      );
+    } else if (token.startsWith("**")) {
       nodes.push(<strong key={`b-${key++}`}>{token.slice(2, -2)}</strong>);
     } else if (token.startsWith("==")) {
       nodes.push(
@@ -380,8 +387,7 @@ export function ArticleReader({ article, onClose, onSaved }: ArticleReaderProps)
                 />
                 <p className="settings-hint" style={{ padding: "8px 0 0" }}>
                   保存写入 Google Drive 里的 Markdown。Obsidian 打开同一文件即可看到修改。配图请继续用
-                  <code>![[图片.png]]</code>。高亮用 <code>==文字==</code>，红线用{" "}
-                  <code>~~文字~~</code>。
+                  <code>![[图片.png]]</code>。高亮用 <code>==文字==</code>，红色点工具栏「红色」。
                 </p>
               </div>
             ) : (

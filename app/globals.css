@@ -285,10 +285,17 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   background: var(--green-soft);
   color: var(--green);
 }
+.md-toolbar-red,
+.md-toolbar-red:hover {
+  color: var(--red);
+}
 .article-mark {
   background: #fff3a3;
   border-radius: 3px;
   padding: 0 2px;
+}
+.article-red {
+  color: var(--red);
 }
 .article-strike {
   color: var(--red);
@@ -397,10 +404,22 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .status-amber { background: var(--amber-soft); color: var(--amber); }
 
 .content-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) 320px; }
+.content-grid.research-grid {
+  align-items: start;
+  grid-template-columns: minmax(260px, 0.82fr) minmax(420px, 1.18fr);
+}
 .research-notes-card {
   display: flex;
   flex-direction: column;
-  max-height: min(72vh, 820px);
+  max-height: min(78vh, 900px);
+}
+.research-hero {
+  padding: 16px 16px 12px;
+}
+.research-hero > .chart-wrap {
+  height: 168px;
+  margin-top: 8px;
+  padding: 4px 8px 8px;
 }
 .research-notes-actions {
   padding: 0 16px 10px;
@@ -425,13 +444,11 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .toolbar { align-items: center; display: flex; gap: 8px; margin-bottom: 14px; }
 .search-field { align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; color: var(--muted); display: flex; flex: 1; gap: 8px; padding: 9px 11px; }
 .search-field input { background: transparent; border: 0; color: var(--text); outline: 0; width: 100%; }
-.research-hero { padding: 22px; }
 .ticker-head { align-items: flex-start; display: flex; justify-content: space-between; }
 .ticker-title { align-items: center; display: flex; gap: 12px; }
 .ticker-badge { align-items: center; background: #101713; border-radius: 9px; color: white; display: flex; font-size: 11px; font-weight: 700; height: 42px; justify-content: center; width: 42px; }
 .ticker-title h2 { font-size: 16px; margin: 0; }
 .ticker-title p { color: var(--muted); font-size: 10px; margin: 0; }
-.research-hero > .chart-wrap { margin-top: 12px; }
 .metric-row { display: grid; gap: 8px; grid-template-columns: repeat(4, 1fr); margin: 20px 0; }
 .metric { background: var(--surface-soft); border-radius: 7px; padding: 10px; }
 .metric small, .metric strong { display: block; }
@@ -837,7 +854,9 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 @media (max-width: 1050px) {
   .main-content { padding-left: 24px; padding-right: 24px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
-  .dashboard-grid, .content-grid { grid-template-columns: 1fr; }
+  .dashboard-grid,
+  .content-grid,
+  .content-grid.research-grid { grid-template-columns: 1fr; }
   .mistake-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 720px) {

@@ -140,7 +140,7 @@ export function ResearchWorkspace({
         </section>
       ) : (
         <>
-          <section className="content-grid">
+          <section className="content-grid research-grid">
             <div className="stack">
               <article className="card research-hero">
                 <div className="ticker-head">
