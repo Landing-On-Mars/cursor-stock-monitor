@@ -3,11 +3,43 @@ import "server-only";
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  DATABASE_FILENAME,
+  defaultDatabasePath,
+  normalizeDatabaseDir,
+  readLocalConfig,
+  writeLocalConfig,
+} from "@/lib/local-config";
 
-const databasePath =
-  process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "dashboard.db");
+const globalForDatabase = globalThis as typeof globalThis & {
+  dashboardDatabase?: Database.Database;
+  dashboardDatabasePath?: string;
+};
 
-fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+function envDatabasePath() {
+  const value = process.env.DATABASE_PATH?.trim();
+  return value ? path.resolve(value) : "";
+}
+
+export function resolveDatabasePath() {
+  const fromEnv = envDatabasePath();
+  if (fromEnv) return fromEnv;
+
+  const configuredDir = readLocalConfig().databaseDir?.trim();
+  if (configuredDir) {
+    return path.join(path.resolve(configuredDir), DATABASE_FILENAME);
+  }
+
+  return defaultDatabasePath();
+}
+
+export function databaseUsesSyncFolder() {
+  return !envDatabasePath() && Boolean(readLocalConfig().databaseDir?.trim());
+}
+
+function ensureDatabaseDir(filePath: string) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+}
 
 function ensureColumn(
   database: Database.Database,
@@ -69,10 +101,15 @@ function migrateWatchlistCategories(database: Database.Database) {
   })();
 }
 
-function createDatabase() {
-  const database = new Database(databasePath);
-  database.pragma("journal_mode = WAL");
+function createDatabase(filePath: string) {
+  ensureDatabaseDir(filePath);
+  const database = new Database(filePath);
   database.pragma("foreign_keys = ON");
+  database.pragma("busy_timeout = 5000");
+  // Cloud-synced folders (Google Drive) corrupt WAL sidecar files; use a single .db.
+  database.pragma(
+    databaseUsesSyncFolder() ? "journal_mode = DELETE" : "journal_mode = WAL",
+  );
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS watchlist_items (
@@ -113,7 +150,6 @@ function createDatabase() {
   );
   migrateWatchlistCategories(database);
 
-  // Drop legacy demo seed once; vault import becomes the source of truth.
   const legacyCleared = database
     .prepare("SELECT value FROM app_meta WHERE key = 'legacy_seed_cleared_v2'")
     .get();
@@ -139,12 +175,130 @@ function createDatabase() {
   return database;
 }
 
-const globalForDatabase = globalThis as typeof globalThis & {
-  dashboardDatabase?: Database.Database;
-};
+function checkpointAndClose(database: Database.Database) {
+  try {
+    database.pragma("wal_checkpoint(TRUNCATE)");
+  } catch {
+    // Ignore: DELETE journal mode has no WAL.
+  }
+  database.close();
+}
 
-export const db = globalForDatabase.dashboardDatabase ?? createDatabase();
+export function closeDatabase() {
+  const existing = globalForDatabase.dashboardDatabase;
+  if (!existing) return;
+  checkpointAndClose(existing);
+  globalForDatabase.dashboardDatabase = undefined;
+  globalForDatabase.dashboardDatabasePath = undefined;
+}
 
-if (process.env.NODE_ENV !== "production") {
-  globalForDatabase.dashboardDatabase = db;
+export function getDb() {
+  const filePath = resolveDatabasePath();
+  const existing = globalForDatabase.dashboardDatabase;
+  if (existing && globalForDatabase.dashboardDatabasePath === filePath) {
+    return existing;
+  }
+  if (existing) checkpointAndClose(existing);
+  const database = createDatabase(filePath);
+  globalForDatabase.dashboardDatabase = database;
+  globalForDatabase.dashboardDatabasePath = filePath;
+  return database;
+}
+
+/** @deprecated use getDb() so the connection can follow a new sync folder */
+export const db = new Proxy({} as Database.Database, {
+  get(_target, property) {
+    const connection = getDb();
+    const value = Reflect.get(connection, property, connection) as unknown;
+    return typeof value === "function"
+      ? (value as (...args: unknown[]) => unknown).bind(connection)
+      : value;
+  },
+});
+
+function assertWritableDirectory(directory: string) {
+  const root = path.parse(directory).root;
+  if (root && !fs.existsSync(root)) {
+    throw new Error(`盘符不存在：${root}。请确认 Google Drive 已启动并完成同步。`);
+  }
+
+  fs.mkdirSync(directory, { recursive: true });
+  const probe = path.join(directory, ".northstar-write-check");
+  try {
+    fs.writeFileSync(probe, "ok");
+    fs.unlinkSync(probe);
+  } catch {
+    throw new Error("该文件夹无法写入。请检查 Google Drive 是否已镜像到本地。");
+  }
+}
+
+export function setDatabaseDir(input: string) {
+  if (envDatabasePath()) {
+    throw new Error("当前由环境变量 DATABASE_PATH 指定数据库，无法在设置里改路径。");
+  }
+
+  const directory = normalizeDatabaseDir(input);
+  if (!directory) {
+    throw new Error("请填写 Google Drive 同步文件夹路径。");
+  }
+
+  assertWritableDirectory(directory);
+
+  const nextPath = path.join(directory, DATABASE_FILENAME);
+  const currentPath = resolveDatabasePath();
+
+  if (path.resolve(currentPath) !== path.resolve(nextPath)) {
+    const current = getDb();
+    try {
+      current.pragma("wal_checkpoint(TRUNCATE)");
+    } catch {
+      // Ignore missing WAL.
+    }
+    if (!fs.existsSync(nextPath) && fs.existsSync(currentPath)) {
+      fs.copyFileSync(currentPath, nextPath);
+    }
+    closeDatabase();
+  }
+
+  writeLocalConfig({ databaseDir: directory });
+  closeDatabase();
+  return getDb();
+}
+
+export function databaseStatus() {
+  const filePath = resolveDatabasePath();
+  const fromEnv = envDatabasePath();
+  const configuredDir = readLocalConfig().databaseDir?.trim() || "";
+  let sizeBytes = 0;
+  let watchlistCount = 0;
+  let journalMode = "";
+  let available = false;
+  let error = "";
+
+  try {
+    const database = getDb();
+    available = fs.existsSync(filePath);
+    sizeBytes = available ? fs.statSync(filePath).size : 0;
+    watchlistCount = (
+      database.prepare("SELECT COUNT(*) AS count FROM watchlist_items").get() as {
+        count: number;
+      }
+    ).count;
+    journalMode = String(database.pragma("journal_mode", { simple: true }) ?? "");
+  } catch (statusError) {
+    error = statusError instanceof Error ? statusError.message : "数据库无法打开。";
+  }
+
+  return {
+    available,
+    configuredDir: configuredDir || null,
+    envOverride: fromEnv || null,
+    filePath,
+    filename: DATABASE_FILENAME,
+    journalMode,
+    sizeBytes,
+    syncFolder: databaseUsesSyncFolder(),
+    watchlistCount,
+    error: error || undefined,
+  };
 }
