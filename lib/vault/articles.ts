@@ -47,7 +47,8 @@ export function scanVaultArticles(vaultRoot: string, force = false): VaultArticl
 
   const articlesDir = path.join(vaultRoot, "Articles");
   if (!fs.existsSync(articlesDir)) {
-    throw new Error(`找不到 Articles 目录：${articlesDir}`);
+    cache = { vaultRoot, scannedAt: now, articles: [] };
+    return [];
   }
 
   const articles = fs
@@ -172,6 +173,88 @@ export function writeVaultArticle(
   const sourceText = fs.readFileSync(current.absolutePath, "utf8");
   const next = replaceMarkdownBody(sourceText, body);
   fs.writeFileSync(current.absolutePath, next);
+  invalidateArticleCache();
+  return readVaultArticle(vaultRoot, relativePath);
+}
+
+function quoteYaml(value: string) {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function safeFileStem(value: string) {
+  return value
+    .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function createVaultArticle(
+  vaultRoot: string,
+  input: {
+    title: string;
+    date: string;
+    body: string;
+    symbols: string[];
+    source?: string;
+    tags?: string[];
+  },
+) {
+  const title = input.title.trim();
+  if (!title) {
+    throw new Error("请填写标题。");
+  }
+
+  const date = input.date.trim() || new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("日期格式应为 YYYY-MM-DD。");
+  }
+
+  const symbols = input.symbols
+    .map((symbol) => symbol.trim().toUpperCase())
+    .filter(Boolean);
+  if (symbols.length === 0) {
+    throw new Error("请选择关联股票。");
+  }
+
+  const stamp = date.replace(/-/g, "");
+  const stem = safeFileStem(`${symbols[0]} ${stamp}：${title}`);
+  const articlesDir = path.join(vaultRoot, "Articles");
+  fs.mkdirSync(articlesDir, { recursive: true });
+
+  let filename = `${stem}.md`;
+  let relativePath = `Articles/${filename}`;
+  let suffix = 2;
+  while (fs.existsSync(path.join(vaultRoot, relativePath))) {
+    filename = `${stem}-${suffix}.md`;
+    relativePath = `Articles/${filename}`;
+    suffix += 1;
+  }
+
+  const tags = [...new Set(["article", "idea", ...(input.tags ?? [])])];
+  const yamlTags = tags.map((tag) => `  - ${quoteYaml(tag)}`).join("\n");
+  const yamlSymbols = symbols.map((symbol) => `  - ${quoteYaml(symbol)}`).join("\n");
+  const body = `${input.body.replace(/\r\n/g, "\n").trim()}\n`;
+  const source = `---
+schema_version: 1
+type: article
+title: ${quoteYaml(title)}
+url: ""
+source: ${quoteYaml(input.source?.trim() || "我的想法")}
+author: ""
+published_at: ${quoteYaml(date)}
+saved_at: ${quoteYaml(date)}
+symbols:
+${yamlSymbols}
+industries: []
+status: inbox
+rating: ""
+tags:
+${yamlTags}
+---
+
+${body}`;
+
+  fs.writeFileSync(path.join(vaultRoot, relativePath), source, "utf8");
   invalidateArticleCache();
   return readVaultArticle(vaultRoot, relativePath);
 }

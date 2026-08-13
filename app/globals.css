@@ -192,7 +192,61 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .article-reader-backdrop {
   padding: 28px 48px;
 }
-.article-editor {
+.article-reader-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.article-reader-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px clamp(24px, 3vw, 40px) 28px;
+  scrollbar-gutter: stable;
+}
+.article-reader-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.article-reader-scroll::-webkit-scrollbar-thumb {
+  background: #c5cdc7;
+  border-radius: 8px;
+}
+.article-scroll-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+.article-scroll-controls button {
+  align-items: center;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(18, 29, 21, .12);
+  color: var(--green);
+  cursor: pointer;
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+.article-scroll-controls button:hover {
+  background: var(--green-soft);
+  border-color: #9dbba9;
+}
+.article-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: min(58vh, 620px);
+}
+.article-editor,
+.idea-composer-editor {
   background: #fbfcfb;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -200,10 +254,45 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.6;
-  min-height: min(62vh, 640px);
+  min-height: min(52vh, 560px);
   padding: 14px 16px;
   resize: vertical;
   width: 100%;
+}
+.idea-composer-editor {
+  min-height: 280px;
+}
+.md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.md-toolbar button {
+  align-items: center;
+  background: #f5f7f5;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: #3d4a42;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 5px;
+  padding: 6px 9px;
+}
+.md-toolbar button:hover {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.article-mark {
+  background: #fff3a3;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.article-strike {
+  color: var(--red);
+  text-decoration: line-through;
 }
 .article-markdown {
   color: #2a322d;
@@ -287,6 +376,31 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .status-amber { background: var(--amber-soft); color: var(--amber); }
 
 .content-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) 320px; }
+.research-notes-card {
+  display: flex;
+  flex-direction: column;
+  max-height: min(72vh, 820px);
+}
+.research-notes-actions {
+  padding: 0 16px 10px;
+}
+.research-notes-actions .btn {
+  justify-content: center;
+  width: 100%;
+}
+.research-article-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.research-article-list::-webkit-scrollbar {
+  width: 8px;
+}
+.research-article-list::-webkit-scrollbar-thumb {
+  background: #c5cdc7;
+  border-radius: 8px;
+}
 .toolbar { align-items: center; display: flex; gap: 8px; margin-bottom: 14px; }
 .search-field { align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; color: var(--muted); display: flex; flex: 1; gap: 8px; padding: 9px 11px; }
 .search-field input { background: transparent; border: 0; color: var(--text); outline: 0; width: 100%; }
@@ -547,13 +661,24 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   z-index: 50;
 }
 .modal { background: white; border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 24px 70px rgba(18, 27, 21, .2); max-width: 520px; overflow: hidden; width: 100%; }
-.modal.article-reader-modal {
+.modal.article-reader-modal,
+.modal.idea-composer-modal {
   display: flex;
   flex-direction: column;
   max-height: min(88vh, 920px);
   max-width: none;
   overflow: hidden;
   width: min(980px, calc(100vw - 96px));
+}
+.modal.idea-composer-modal {
+  width: min(720px, calc(100vw - 48px));
+}
+.modal.idea-composer-modal form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
 }
 .modal.article-reader-modal .modal-head {
   gap: 16px;
@@ -572,7 +697,8 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   margin: 8px 0 0;
 }
 @media (max-width: 900px) {
-  .modal.article-reader-modal {
+  .modal.article-reader-modal,
+  .modal.idea-composer-modal {
     max-height: calc(100vh - 32px);
     width: calc(100vw - 32px);
   }

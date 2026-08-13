@@ -3,13 +3,15 @@
 import {
   ExternalLink,
   FileText,
+  Lightbulb,
   LoaderCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArticleReader,
   type ArticleSummary,
 } from "@/components/article-reader";
+import { IdeaComposer } from "@/components/idea-composer";
 import { MarketChart } from "@/components/market-chart";
 import { WatchlistManager } from "@/components/watchlist-manager";
 import type { WatchlistItem } from "@/lib/watchlist-types";
@@ -36,10 +38,28 @@ export function ResearchWorkspace({
   } | null>(null);
   const [preferSymbol] = useState(initialSymbol);
   const [openedArticle, setOpenedArticle] = useState<VaultArticle | null>(null);
+  const [ideaOpen, setIdeaOpen] = useState(false);
+
+  const loadArticles = useCallback(async (symbol: string) => {
+    try {
+      const response = await fetch(
+        `/api/vault/articles?symbol=${encodeURIComponent(symbol)}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) throw new Error(await readError(response));
+      const data = (await response.json()) as VaultArticle[];
+      setArticleBundle({ symbol, articles: data, error: "" });
+    } catch (error: unknown) {
+      setArticleBundle({
+        symbol,
+        articles: [],
+        error: error instanceof Error ? error.message : "文章加载失败",
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!selected) return;
-
     const symbol = selected.symbol;
     let active = true;
 
@@ -93,7 +113,10 @@ export function ResearchWorkspace({
   return (
     <>
       <WatchlistManager
-        onSelect={setSelected}
+        onSelect={(item) => {
+          setIdeaOpen(false);
+          setSelected(item);
+        }}
         selectedId={selected?.id ?? null}
         onItemsChange={(items) => {
           if (!selected) {
@@ -158,7 +181,7 @@ export function ResearchWorkspace({
               </article>
             </div>
 
-            <aside className="card">
+            <aside className="card research-notes-card">
               <div className="card-head">
                 <div>
                   <h2>关联文章</h2>
@@ -168,46 +191,58 @@ export function ResearchWorkspace({
                       : `共 ${visibleArticles.length} 篇`}
                   </p>
                 </div>
-                <span className="obsidian-label">Vault</span>
+              </div>
+
+              <div className="research-notes-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setIdeaOpen(true)}
+                  type="button"
+                >
+                  <Lightbulb size={14} />
+                  记录我的想法
+                </button>
               </div>
 
               {articlesError && <div className="inline-error">{articlesError}</div>}
 
-              {articlesLoading ? (
-                <div className="watchlist-empty">
-                  <LoaderCircle className="spin" size={18} />
-                  <span>正在读取 Articles…</span>
-                </div>
-              ) : visibleArticles.length === 0 ? (
-                <div className="watchlist-empty">
-                  <FileText size={18} />
-                  <strong>暂无关联文章</strong>
-                  <span>该标的在 Articles Frontmatter 的 symbols 中没有命中。</span>
-                </div>
-              ) : (
-                visibleArticles.map((article) => (
-                  <button
-                    className="note-row note-row-link note-row-button"
-                    key={article.path}
-                    onClick={() => setOpenedArticle(article)}
-                    type="button"
-                  >
-                    <span className="market-icon">
-                      <FileText size={13} />
-                    </span>
-                    <div className="row-main">
-                      <strong>{article.title}</strong>
-                      <small>
-                        {(article.publishedAt || article.savedAt || "未知日期") +
-                          (article.source ? ` · ${article.source}` : "")}
-                      </small>
-                    </div>
-                    <span title="打开文章">
-                      <ExternalLink size={13} color="#929a94" />
-                    </span>
-                  </button>
-                ))
-              )}
+              <div className="research-article-list">
+                {articlesLoading ? (
+                  <div className="watchlist-empty">
+                    <LoaderCircle className="spin" size={18} />
+                    <span>正在读取 Articles…</span>
+                  </div>
+                ) : visibleArticles.length === 0 ? (
+                  <div className="watchlist-empty">
+                    <FileText size={18} />
+                    <strong>暂无关联文章</strong>
+                    <span>该标的在 Articles Frontmatter 的 symbols 中没有命中。</span>
+                  </div>
+                ) : (
+                  visibleArticles.map((article) => (
+                    <button
+                      className="note-row note-row-link note-row-button"
+                      key={article.path}
+                      onClick={() => setOpenedArticle(article)}
+                      type="button"
+                    >
+                      <span className="market-icon">
+                        <FileText size={13} />
+                      </span>
+                      <div className="row-main">
+                        <strong>{article.title}</strong>
+                        <small>
+                          {(article.publishedAt || article.savedAt || "未知日期") +
+                            (article.source ? ` · ${article.source}` : "")}
+                        </small>
+                      </div>
+                      <span title="打开文章">
+                        <ExternalLink size={13} color="#929a94" />
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
             </aside>
           </section>
         </>
@@ -217,6 +252,19 @@ export function ResearchWorkspace({
         article={openedArticle}
         onClose={() => setOpenedArticle(null)}
       />
+
+      {selected && ideaOpen ? (
+        <IdeaComposer
+          name={selected.name}
+          onClose={() => setIdeaOpen(false)}
+          onCreated={(article) => {
+            setIdeaOpen(false);
+            setOpenedArticle(article);
+            void loadArticles(selected.symbol);
+          }}
+          symbol={selected.symbol}
+        />
+      ) : null}
     </>
   );
 }

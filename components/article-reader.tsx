@@ -1,7 +1,16 @@
 "use client";
 
-import { FileText, LoaderCircle, Pencil, Save, X } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  LoaderCircle,
+  Pencil,
+  Save,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { MarkdownToolbar } from "@/components/markdown-toolbar";
 
 export type ArticleSummary = {
   title: string;
@@ -47,7 +56,8 @@ function splitArticleContent(content: string): ContentPart[] {
 
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+  const pattern =
+    /(\*\*[^*]+\*\*|==[^=]+==|~~[^~]+~~|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -59,6 +69,18 @@ function renderInline(text: string): ReactNode[] {
     const token = match[0];
     if (token.startsWith("**")) {
       nodes.push(<strong key={`b-${key++}`}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("==")) {
+      nodes.push(
+        <mark className="article-mark" key={`m-${key++}`}>
+          {token.slice(2, -2)}
+        </mark>,
+      );
+    } else if (token.startsWith("~~")) {
+      nodes.push(
+        <del className="article-strike" key={`s-${key++}`}>
+          {token.slice(2, -2)}
+        </del>,
+      );
     } else if (token.startsWith("`")) {
       nodes.push(<code key={`c-${key++}`}>{token.slice(1, -1)}</code>);
     } else {
@@ -162,6 +184,8 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!article) {
@@ -205,6 +229,15 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     () => splitArticleContent(detail?.content ?? ""),
     [detail?.content],
   );
+
+  function scrollPage(direction: -1 | 1) {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollBy({
+      top: direction * Math.max(240, Math.round(node.clientHeight * 0.82)),
+      behavior: "smooth",
+    });
+  }
 
   async function saveDraft() {
     if (!article) return;
@@ -298,45 +331,72 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
         </div>
 
         <div className="article-reader-body">
-          {loading ? (
-            <div className="watchlist-empty">
-              <LoaderCircle className="spin" size={18} />
-              <span>正在读取文章…</span>
-            </div>
-          ) : error && !detail ? (
-            <div className="inline-error">{error}</div>
-          ) : editing ? (
-            <>
-              {error ? <div className="inline-error">{error}</div> : null}
-              <textarea
-                className="article-editor"
-                onChange={(event) => setDraft(event.target.value)}
-                spellCheck={false}
-                value={draft}
-              />
-              <p className="settings-hint" style={{ padding: "8px 0 0" }}>
-                保存写入 Google Drive 里的 Markdown。Obsidian 打开同一文件即可看到修改。配图请继续用
-                <code>![[图片.png]]</code>。
-              </p>
-            </>
-          ) : (
-            <div className="article-markdown">
-              {parts.map((part, index) =>
-                part.type === "image" ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    alt={part.alt}
-                    className="article-image"
-                    key={`img-${index}-${part.src}`}
-                    loading="lazy"
-                    src={part.src}
-                  />
-                ) : part.value ? (
-                  <MarkdownText key={`text-${index}`} value={part.value} />
-                ) : null,
-              )}
-            </div>
-          )}
+          <div className="article-reader-scroll" ref={scrollRef}>
+            {loading ? (
+              <div className="watchlist-empty">
+                <LoaderCircle className="spin" size={18} />
+                <span>正在读取文章…</span>
+              </div>
+            ) : error && !detail ? (
+              <div className="inline-error">{error}</div>
+            ) : editing ? (
+              <div className="article-editor-wrap">
+                {error ? <div className="inline-error">{error}</div> : null}
+                <MarkdownToolbar
+                  onChange={setDraft}
+                  textareaRef={editorRef}
+                  value={draft}
+                />
+                <textarea
+                  className="article-editor"
+                  onChange={(event) => setDraft(event.target.value)}
+                  ref={editorRef}
+                  spellCheck={false}
+                  value={draft}
+                />
+                <p className="settings-hint" style={{ padding: "8px 0 0" }}>
+                  保存写入 Google Drive 里的 Markdown。Obsidian 打开同一文件即可看到修改。配图请继续用
+                  <code>![[图片.png]]</code>。高亮用 <code>==文字==</code>，红线用{" "}
+                  <code>~~文字~~</code>。
+                </p>
+              </div>
+            ) : (
+              <div className="article-markdown">
+                {parts.map((part, index) =>
+                  part.type === "image" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt={part.alt}
+                      className="article-image"
+                      key={`img-${index}-${part.src}`}
+                      loading="lazy"
+                      src={part.src}
+                    />
+                  ) : part.value ? (
+                    <MarkdownText key={`text-${index}`} value={part.value} />
+                  ) : null,
+                )}
+              </div>
+            )}
+          </div>
+          <div className="article-scroll-controls">
+            <button
+              aria-label="向上滚动"
+              onClick={() => scrollPage(-1)}
+              title="向上滚动"
+              type="button"
+            >
+              <ChevronUp size={18} />
+            </button>
+            <button
+              aria-label="向下滚动"
+              onClick={() => scrollPage(1)}
+              title="向下滚动"
+              type="button"
+            >
+              <ChevronDown size={18} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
