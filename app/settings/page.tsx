@@ -38,7 +38,6 @@ type DatabaseStatus = {
   sizeBytes: number;
   syncFolder: boolean;
   watchlistCount: number;
-  articleCount?: number;
   error?: string;
 };
 
