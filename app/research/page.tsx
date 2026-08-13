@@ -22,7 +22,7 @@ export default async function ResearchPage({ searchParams }: ResearchPageProps) 
         <div className="header-actions">
           <a className="btn" href="/settings">
             <ExternalLink size={14} />
-            Vault 设置
+            设置
           </a>
         </div>
       </header>
