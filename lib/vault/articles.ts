@@ -105,6 +105,7 @@ export function articleCountBySymbol(vaultRoot: string) {
 
 export type VaultArticleContent = VaultArticle & {
   content: string;
+  rawContent: string;
   absolutePath: string;
 };
 
@@ -139,7 +140,8 @@ export function readVaultArticle(
   const sourceText = fs.readFileSync(resolved, "utf8");
   const { data, content } = parseFrontmatter(sourceText);
   const name = path.basename(safePath);
-  const rewritten = rewriteArticleMedia(content.trim(), vaultRoot, safePath);
+  const body = content.trim();
+  const rewritten = rewriteArticleMedia(body, vaultRoot, safePath);
 
   return {
     title:
@@ -157,7 +159,30 @@ export function readVaultArticle(
     status: asString(data.status, "inbox"),
     tags: asStringArray(data.tags),
     content: rewritten,
+    rawContent: body,
   };
+}
+
+export function writeVaultArticle(
+  vaultRoot: string,
+  relativePath: string,
+  body: string,
+) {
+  const current = readVaultArticle(vaultRoot, relativePath);
+  const sourceText = fs.readFileSync(current.absolutePath, "utf8");
+  const next = replaceMarkdownBody(sourceText, body);
+  fs.writeFileSync(current.absolutePath, next);
+  invalidateArticleCache();
+  return readVaultArticle(vaultRoot, relativePath);
+}
+
+function replaceMarkdownBody(source: string, body: string) {
+  const normalized = `${body.replace(/\r\n/g, "\n").trimEnd()}\n`;
+  if (!source.startsWith("---")) return normalized;
+  const end = source.indexOf("\n---", 3);
+  if (end < 0) return normalized;
+  const header = source.slice(0, end + 4).replace(/[ \t]+$/u, "");
+  return `${header}\n\n${normalized}`;
 }
 
 export function buildObsidianUri(vaultRoot: string, relativePath: string) {

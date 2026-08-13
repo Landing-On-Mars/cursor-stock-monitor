@@ -16,7 +16,7 @@ export default async function ResearchPage({ searchParams }: ResearchPageProps) 
           <p className="eyebrow">Research Library</p>
           <h1>个股研究</h1>
           <p className="page-subtitle">
-            从 investment-vault 导入自选股，对照 thesis 与关联文章。
+            自选来自看板数据库；研究笔记读写 Google Drive 里的 Vault，可与 Obsidian 同开。
           </p>
         </div>
         <div className="header-actions">

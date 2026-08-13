@@ -281,10 +281,16 @@ export function setDatabaseDir(input: string) {
     if (!fs.existsSync(nextPath) && fs.existsSync(currentPath)) {
       fs.copyFileSync(currentPath, nextPath);
     }
-    const currentAssets = path.join(path.dirname(currentPath), "assets");
+    const currentDir = path.dirname(currentPath);
+    const currentAssets = path.join(currentDir, "assets");
     const nextAssets = path.join(directory, "assets");
     if (!fs.existsSync(nextAssets) && fs.existsSync(currentAssets)) {
       fs.cpSync(currentAssets, nextAssets, { recursive: true });
+    }
+    const currentVault = path.join(currentDir, "Vault");
+    const nextVault = path.join(directory, "Vault");
+    if (!fs.existsSync(nextVault) && fs.existsSync(currentVault)) {
+      fs.cpSync(currentVault, nextVault, { recursive: true });
     }
     closeDatabase();
   }

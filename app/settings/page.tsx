@@ -15,6 +15,7 @@ type VaultStatus = {
   configured: string | null;
   resolved: string | null;
   available: boolean;
+  notesRoot?: string | null;
   stockCount?: number;
   coreCount?: number;
   watchCount?: number;
@@ -189,7 +190,7 @@ export default function SettingsPage() {
       };
       await Promise.all([refreshStatus(), refreshDatabase()]);
       setMessage(
-        `已导入 ${payload.imported} 只股票（核心 ${payload.core} · 观察 ${payload.watch} · 路人 ${payload.archive}），文章 ${payload.articles ?? 0} 篇，图片 ${payload.assets ?? 0} 张。之后只需 Google Drive 同步。`,
+        `已拷入 Drive Vault：文章 ${payload.articles ?? 0} 篇、图片 ${payload.assets ?? 0} 张；自选 ${payload.imported} 只（核心 ${payload.core} · 观察 ${payload.watch} · 路人 ${payload.archive}）。请用 Obsidian 打开 Northstar\\Vault。`,
       );
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "导入失败");
@@ -205,7 +206,8 @@ export default function SettingsPage() {
           <p className="eyebrow">Preferences</p>
           <h1>设置</h1>
           <p className="page-subtitle">
-            指定 Google Drive 同步文件夹。Journal 只需导入一次，之后不再读取。
+            自选放在 Drive 里的数据库；研究笔记是同一目录下的 Vault，看板和 Obsidian 编辑同一批
+            Markdown。
           </p>
         </div>
       </header>
@@ -213,8 +215,8 @@ export default function SettingsPage() {
       <section className="card settings-panel">
         <div className="card-head">
           <div>
-            <h2>数据库同步文件夹</h2>
-            <p>SQLite 与文章配图都放在这个镜像目录，家里和办公室共用</p>
+            <h2>Google Drive 同步文件夹</h2>
+            <p>家里和办公室填同一个镜像目录：数据库 + Vault 笔记都在这里</p>
           </div>
           <span className="icon-box">
             <HardDrive size={15} />
@@ -244,10 +246,9 @@ export default function SettingsPage() {
                 <strong>{databaseStatus?.watchlistCount ?? 0}</strong>
               </div>
               <div className="metric">
-                <small>文章 / 图片</small>
+                <small>Vault 文章 / 图片</small>
                 <strong>
-                  {databaseStatus?.articleCount ?? status?.storedArticleCount ?? 0} /{" "}
-                  {status?.storedAssetCount ?? 0}
+                  {status?.storedArticleCount ?? 0} / {status?.storedAssetCount ?? 0}
                 </strong>
               </div>
             </div>
@@ -260,15 +261,16 @@ export default function SettingsPage() {
                   <input
                     disabled={Boolean(databaseStatus?.envOverride)}
                     onChange={(event) => setDatabaseDirInput(event.target.value)}
-                    placeholder="G:\我的云端硬盘\Northstar  或  H:\Northstar"
+                    placeholder="C:\Users\ht.tu\My Drive\Northstar"
                     value={databaseDirInput}
                   />
                 </div>
               </label>
               <p className="settings-hint">
                 填桌面客户端的<strong>镜像</strong>文件夹（不要用流式文件）。会写入
-                <code>dashboard.db</code> 和 <code>assets/</code>
-                。不要两边同时开 Northstar。当前文件：
+                <code>dashboard.db</code> 和 <code>Vault/</code>
+                。Obsidian 请打开其中的 <code>Vault</code>
+                。不要两台电脑同时开 Northstar。当前数据库：
                 <code>{databaseStatus?.filePath || "—"}</code>
                 {databaseStatus?.envOverride ? (
                   <>
@@ -295,7 +297,7 @@ export default function SettingsPage() {
         <div className="card-head">
           <div>
             <h2>从 Journal 导入</h2>
-            <p>一次性把股票、文章和配图拷进 Google Drive 文件夹，之后不再依赖 Journal</p>
+            <p>一次性把 Articles、Stocks 拷到 Drive 的 Vault，之后两边改同一批 md</p>
           </div>
           <span className="icon-box">
             <Settings size={15} />
@@ -335,7 +337,7 @@ export default function SettingsPage() {
 
             <form className="settings-form" onSubmit={savePath}>
               <label className="field field-full">
-                <span>Journal / Vault 路径</span>
+                <span>Journal 路径（仅导入用）</span>
                 <div className="stock-search-input">
                   <FolderOpen size={15} />
                   <input
@@ -346,13 +348,13 @@ export default function SettingsPage() {
                 </div>
               </label>
               <p className="settings-hint">
-                仅用于导入。导入后看板读写 Google Drive 里的
-                <code>dashboard.db</code> 和 <code>assets</code>
-                ，Journal 可留作备份。当前解析：
+                导入后看板读写 Drive 里的 Markdown，Journal 可留作备份。Obsidian 打开：
+                <code>{status?.notesRoot || "（导入后显示）"}</code>
+                。Journal 解析：
                 <code>{status?.resolved || "—"}</code>
                 {typeof status?.storedArticleCount === "number" ? (
                   <>
-                    。已入库文章 {status.storedArticleCount} 篇
+                    。Drive Vault 文章 {status.storedArticleCount} 篇
                     {typeof status.storedAssetCount === "number"
                       ? ` · 图片 ${status.storedAssetCount} 张`
                       : ""}
@@ -377,7 +379,7 @@ export default function SettingsPage() {
                   ) : (
                     <RefreshCw size={14} />
                   )}
-                  {importing ? "导入中…" : "导入股票和文章"}
+                  {importing ? "导入中…" : "拷入 Drive Vault 并导入自选"}
                 </button>
               </div>
             </form>

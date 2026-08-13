@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveNotesRoot } from "@/lib/notes-root";
 import { readStoreAsset } from "@/lib/store-assets";
 import { readVaultAsset } from "@/lib/vault/assets";
 import { resolveVaultPath } from "@/lib/vault/path";
@@ -13,15 +14,22 @@ export async function GET(request: NextRequest) {
 
   try {
     const normalized = assetPath.replace(/\\/g, "/");
-    const asset = normalized.startsWith("assets/")
-      ? readStoreAsset(normalized)
-      : (() => {
-          const vaultRoot = resolveVaultPath();
-          if (!vaultRoot) {
-            throw new Error(`找不到图片：${normalized}`);
-          }
-          return readVaultAsset(vaultRoot, normalized);
-        })();
+    if (normalized.startsWith("assets/")) {
+      const asset = readStoreAsset(normalized);
+      return new NextResponse(asset.buffer, {
+        headers: {
+          "Content-Type": asset.mimeType,
+          "Cache-Control": "public, max-age=3600",
+          "Content-Length": String(asset.buffer.byteLength),
+        },
+      });
+    }
+
+    const notesRoot = resolveNotesRoot() || resolveVaultPath();
+    if (!notesRoot) {
+      throw new Error(`找不到图片：${normalized}`);
+    }
+    const asset = readVaultAsset(notesRoot, normalized);
     return new NextResponse(asset.buffer, {
       headers: {
         "Content-Type": asset.mimeType,

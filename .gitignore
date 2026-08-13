@@ -15,6 +15,7 @@ data/*.db
 data/*.db-*
 data/local-config.json
 data/assets/
+data/Vault/
 
 # Build output
 .next/

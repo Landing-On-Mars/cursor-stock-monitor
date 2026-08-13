@@ -1,8 +1,9 @@
 import { FileText } from "lucide-react";
 import Link from "next/link";
-import { listStoredArticles, type StoredArticle } from "@/lib/store-articles";
+import { resolveNotesRoot } from "@/lib/notes-root";
+import { scanVaultArticles, type VaultArticle } from "@/lib/vault/articles";
 
-function marketBadge(article: StoredArticle) {
+function marketBadge(article: VaultArticle) {
   const symbol = article.symbols[0]?.toUpperCase() ?? "";
   if (!symbol) return "研";
   if (symbol.endsWith(".HK")) return "HK";
@@ -29,7 +30,7 @@ function formatNoteDate(value: string) {
   }).format(new Date(parsed));
 }
 
-function noteMeta(article: StoredArticle) {
+function noteMeta(article: VaultArticle) {
   const parts: string[] = [];
   if (article.symbols.length > 0) {
     parts.push(article.symbols.slice(0, 2).join(" · "));
@@ -44,11 +45,14 @@ type RecentVaultNotesProps = {
 };
 
 export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
-  let articles: StoredArticle[] = [];
+  const notesRoot = resolveNotesRoot();
+  let articles: VaultArticle[] = [];
   let error = "";
 
   try {
-    articles = listStoredArticles().slice(0, limit);
+    if (notesRoot) {
+      articles = scanVaultArticles(notesRoot).slice(0, limit);
+    }
   } catch (scanError) {
     error = scanError instanceof Error ? scanError.message : "文章读取失败";
   }
@@ -62,8 +66,8 @@ export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
             {error
               ? "读取失败"
               : articles.length > 0
-                ? `来自同步库 · 最近 ${articles.length} 篇`
-                : "还没有导入文章"}
+                ? `Drive Vault · 最近 ${articles.length} 篇`
+                : "还没有导入笔记"}
           </p>
         </div>
         <Link href={articles.length > 0 ? "/research" : "/settings"} className="text-link">
@@ -76,8 +80,8 @@ export async function RecentVaultNotes({ limit = 6 }: RecentVaultNotesProps) {
       ) : articles.length === 0 ? (
         <div className="watchlist-empty">
           <FileText size={18} />
-          <strong>同步库里还没有文章</strong>
-          <span>在设置中从 Journal 导入一次，之后只需 Google Drive 同步。</span>
+          <strong>Drive 里还没有 Articles</strong>
+          <span>在设置中从 Journal 拷入一次，之后可在看板或 Obsidian 编辑同一文件。</span>
         </div>
       ) : (
         <div className="notes-list">

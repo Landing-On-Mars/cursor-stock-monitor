@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { MarketChart } from "@/components/market-chart";
 import { RecentVaultNotes } from "@/components/recent-vault-notes";
-import { storedArticleCount } from "@/lib/store-articles";
+import { notesStatus } from "@/lib/notes-root";
 
 const watchlist = [
   { market: "US", symbol: "NVDA", name: "NVIDIA", price: "$182.41", change: "+2.84%" },
@@ -24,7 +24,7 @@ const watchlist = [
 export const dynamic = "force-dynamic";
 
 export default function Dashboard() {
-  const articleCount = storedArticleCount();
+  const articleCount = notesStatus().articleCount;
   const todayLabel = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     day: "numeric",
@@ -40,8 +40,8 @@ export default function Dashboard() {
           <h1>早上好，开始今天的复盘。</h1>
           <p className="page-subtitle">
             {articleCount > 0
-              ? `研究笔记 ${articleCount} 篇已在同步库中`
-              : "研究笔记尚未导入，可在设置中从 Journal 导入一次"}
+              ? `研究笔记 ${articleCount} 篇 · 可在看板或 Obsidian 编辑`
+              : "研究笔记尚未导入，可在设置中从 Journal 拷入 Google Drive"}
           </p>
         </div>
         <div className="header-actions">

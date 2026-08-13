@@ -1,100 +1,45 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, resolveAssetsDir } from "@/lib/db";
-import {
-  upsertStoredArticle,
-} from "@/lib/store-articles";
-import { vaultRelativeToAssetPath } from "@/lib/store-assets";
-import {
-  asString,
-  asStringArray,
-  parseFrontmatter,
-} from "@/lib/vault/frontmatter";
-import {
-  isVaultImagePath,
-  rewriteArticleMedia,
-} from "@/lib/vault/assets";
+import { notesRootPath } from "@/lib/notes-root";
+import { invalidateArticleCache } from "@/lib/vault/articles";
 
-function copyImageTree(vaultRoot: string) {
-  const assetsDir = resolveAssetsDir();
-  fs.mkdirSync(assetsDir, { recursive: true });
+function countMarkdown(dir: string) {
+  if (!fs.existsSync(dir)) return 0;
+  return fs.readdirSync(dir).filter((name) => name.endsWith(".md")).length;
+}
 
-  const attachments = path.join(vaultRoot, "Articles", "attachments");
-  if (fs.existsSync(attachments)) {
-    fs.cpSync(attachments, assetsDir, { recursive: true, force: true });
+function copyFolder(journalRoot: string, notesRoot: string, folder: string) {
+  const from = path.join(journalRoot, folder);
+  if (!fs.existsSync(from)) return;
+  fs.cpSync(from, path.join(notesRoot, folder), { recursive: true, force: true });
+}
+
+export function copyJournalToDriveVault(journalRoot: string) {
+  const articlesFrom = path.join(journalRoot, "Articles");
+  if (!fs.existsSync(articlesFrom)) {
+    throw new Error(`Journal 里找不到 Articles 目录：${articlesFrom}`);
   }
 
-  const articlesDir = path.join(vaultRoot, "Articles");
-  for (const name of fs.readdirSync(articlesDir)) {
-    if (!isVaultImagePath(name)) continue;
-    fs.copyFileSync(path.join(articlesDir, name), path.join(assetsDir, name));
+  const notesRoot = notesRootPath();
+  fs.mkdirSync(notesRoot, { recursive: true });
+
+  copyFolder(journalRoot, notesRoot, "Articles");
+  copyFolder(journalRoot, notesRoot, "Stocks");
+  copyFolder(journalRoot, notesRoot, ".workbuddy");
+
+  const obsidianFrom = path.join(journalRoot, ".obsidian");
+  const obsidianTo = path.join(notesRoot, ".obsidian");
+  if (fs.existsSync(obsidianFrom) && !fs.existsSync(obsidianTo)) {
+    fs.cpSync(obsidianFrom, obsidianTo, { recursive: true });
+  } else {
+    fs.mkdirSync(obsidianTo, { recursive: true });
   }
-}
 
-function rewriteToStoreAssets(
-  content: string,
-  vaultRoot: string,
-  articleRelativePath: string,
-) {
-  const rewritten = rewriteArticleMedia(content, vaultRoot, articleRelativePath);
-  return rewritten.replace(
-    /\/api\/vault\/asset\?path=([^)\s]+)/g,
-    (match, encoded: string) => {
-      try {
-        const vaultRelative = decodeURIComponent(encoded);
-        if (vaultRelative.startsWith("assets/")) return match;
-        const storePath = vaultRelativeToAssetPath(vaultRelative);
-        return `/api/vault/asset?path=${encodeURIComponent(storePath)}`;
-      } catch {
-        return match;
-      }
-    },
-  );
-}
+  invalidateArticleCache();
 
-function importMarkdownArticles(vaultRoot: string) {
-  const articlesDir = path.join(vaultRoot, "Articles");
-  const names = fs.readdirSync(articlesDir).filter((name) => name.endsWith(".md"));
-  const database = getDb();
-  const upsert = database.transaction(() => {
-    for (const name of names) {
-      const relativePath = path.join("Articles", name).replace(/\\/g, "/");
-      const sourceText = fs.readFileSync(path.join(articlesDir, name), "utf8");
-      const { data, content } = parseFrontmatter(sourceText);
-      const title =
-        asString(data.title) ||
-        name.replace(/\.md$/, "").replace(/^.*?[：:]/, "").trim() ||
-        name;
-
-      upsertStoredArticle({
-        path: relativePath,
-        title,
-        source: asString(data.source),
-        author: asString(data.author),
-        publishedAt: asString(data.published_at),
-        savedAt: asString(data.saved_at),
-        symbols: asStringArray(data.symbols),
-        industries: asStringArray(data.industries),
-        status: asString(data.status, "inbox"),
-        tags: asStringArray(data.tags),
-        content: rewriteToStoreAssets(content.trim(), vaultRoot, relativePath),
-      });
-    }
-  });
-  upsert();
-  return names.length;
-}
-
-export function importVaultArticles(vaultRoot: string) {
-  copyImageTree(vaultRoot);
-  const articleCount = importMarkdownArticles(vaultRoot);
-
-  const unresolved = getDb()
-    .prepare("SELECT path FROM articles WHERE content LIKE '%![[%'")
-    .all() as Array<{ path: string }>;
-
+  const articlesDir = path.join(notesRoot, "Articles");
   return {
-    articleCount,
-    unresolvedEmbeds: unresolved.length,
+    notesRoot,
+    articleCount: countMarkdown(articlesDir),
   };
 }

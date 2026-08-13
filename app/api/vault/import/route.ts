@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { databaseStatus, getDb } from "@/lib/db";
+import { notesStatus, resolveNotesRoot } from "@/lib/notes-root";
+import { copyJournalToDriveVault } from "@/lib/store-import";
 import {
-  articleCountByStoredSymbol,
-  storedArticleCount,
-} from "@/lib/store-articles";
-import { countStoreAssets } from "@/lib/store-assets";
-import { importVaultArticles } from "@/lib/store-import";
-import { invalidateArticleCache } from "@/lib/vault/articles";
+  articleCountBySymbol,
+  invalidateArticleCache,
+  scanVaultArticles,
+} from "@/lib/vault/articles";
 import { resolveVaultPath, vaultStatus } from "@/lib/vault/path";
 import { scanVaultStocks } from "@/lib/vault/stocks";
 import { listWatchlistItems, upsertVaultWatchlistItem } from "@/lib/watchlist-store";
@@ -14,33 +14,38 @@ import { listWatchlistItems, upsertVaultWatchlistItem } from "@/lib/watchlist-st
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const status = vaultStatus();
+  const journal = vaultStatus();
+  const notes = notesStatus();
   const store = databaseStatus();
+  const notesRoot = notes.notesRoot;
   const payload = {
-    ...status,
-    storedArticleCount: storedArticleCount(),
-    storedAssetCount: countStoreAssets(),
+    ...journal,
+    notesRoot,
+    storedArticleCount: notes.articleCount,
+    storedAssetCount: notes.imageCount,
     watchlistCount: listWatchlistItems().length,
     stockCount: 0,
-    articleCount: storedArticleCount(),
+    articleCount: notes.articleCount,
     coreCount: 0,
     watchCount: 0,
     archiveCount: 0,
     databaseDir: store.configuredDir || store.filePath,
   };
 
-  if (!status.resolved) {
+  const stockRoot = journal.resolved;
+  if (!stockRoot) {
     return NextResponse.json(payload);
   }
 
   try {
-    const stocks = scanVaultStocks(status.resolved);
+    const stocks = scanVaultStocks(stockRoot);
     return NextResponse.json({
       ...payload,
       stockCount: stocks.length,
       coreCount: stocks.filter((stock) => stock.category === "CORE").length,
       watchCount: stocks.filter((stock) => stock.category === "WATCH").length,
       archiveCount: stocks.filter((stock) => stock.category === "ARCHIVE").length,
+      articleCount: notes.articleCount || scanVaultArticles(stockRoot).length,
     });
   } catch (error) {
     return NextResponse.json(
@@ -61,19 +66,20 @@ export async function POST(request: Request) {
     body = {};
   }
 
-  const vaultRoot = resolveVaultPath(body.vaultPath);
-  if (!vaultRoot) {
+  const journalRoot = resolveVaultPath(body.vaultPath);
+  if (!journalRoot) {
     return NextResponse.json(
-      { error: "未找到 Journal / investment-vault，请先填写 Vault 路径再导入。" },
+      { error: "未找到 Journal，请先填写 Journal 路径再导入到 Google Drive。" },
       { status: 404 },
     );
   }
 
   try {
     invalidateArticleCache();
-    const stocks = scanVaultStocks(vaultRoot);
-    const articleImport = importVaultArticles(vaultRoot);
-    const articleCounts = articleCountByStoredSymbol();
+    const copied = copyJournalToDriveVault(journalRoot);
+    const notesRoot = resolveNotesRoot() || copied.notesRoot;
+    const stocks = scanVaultStocks(journalRoot);
+    const articleCounts = articleCountBySymbol(notesRoot);
 
     const importStocks = getDb().transaction(() => {
       if (body.replace) {
@@ -108,12 +114,14 @@ export async function POST(request: Request) {
     importStocks();
 
     const items = listWatchlistItems();
+    const notes = notesStatus();
     return NextResponse.json({
       ok: true,
-      vaultPath: vaultRoot,
+      vaultPath: journalRoot,
+      notesRoot,
       imported: stocks.length,
-      articles: articleImport.articleCount,
-      assets: countStoreAssets(),
+      articles: notes.articleCount,
+      assets: notes.imageCount,
       core: items.filter((item) => item.category === "CORE").length,
       watch: items.filter((item) => item.category === "WATCH").length,
       archive: items.filter((item) => item.category === "ARCHIVE").length,
