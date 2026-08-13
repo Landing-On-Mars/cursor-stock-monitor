@@ -1,6 +1,5 @@
 import "server-only";
 
-import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -10,9 +9,10 @@ import {
   readLocalConfig,
   writeLocalConfig,
 } from "@/lib/local-config";
+import { SqliteDatabase } from "@/lib/sqlite";
 
 const globalForDatabase = globalThis as typeof globalThis & {
-  dashboardDatabase?: Database.Database;
+  dashboardDatabase?: SqliteDatabase;
   dashboardDatabasePath?: string;
 };
 
@@ -42,7 +42,7 @@ function ensureDatabaseDir(filePath: string) {
 }
 
 function ensureColumn(
-  database: Database.Database,
+  database: SqliteDatabase,
   table: string,
   column: string,
   definition: string,
@@ -55,7 +55,7 @@ function ensureColumn(
   }
 }
 
-function migrateWatchlistCategories(database: Database.Database) {
+function migrateWatchlistCategories(database: SqliteDatabase) {
   const table = database
     .prepare(
       "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'watchlist_items'",
@@ -103,7 +103,7 @@ function migrateWatchlistCategories(database: Database.Database) {
 
 function createDatabase(filePath: string) {
   ensureDatabaseDir(filePath);
-  const database = new Database(filePath);
+  const database = new SqliteDatabase(filePath);
   database.pragma("foreign_keys = ON");
   database.pragma("busy_timeout = 5000");
   // Cloud-synced folders (Google Drive) corrupt WAL sidecar files; use a single .db.
@@ -175,7 +175,7 @@ function createDatabase(filePath: string) {
   return database;
 }
 
-function checkpointAndClose(database: Database.Database) {
+function checkpointAndClose(database: SqliteDatabase) {
   try {
     database.pragma("wal_checkpoint(TRUNCATE)");
   } catch {
@@ -206,7 +206,7 @@ export function getDb() {
 }
 
 /** @deprecated use getDb() so the connection can follow a new sync folder */
-export const db = new Proxy({} as Database.Database, {
+export const db = new Proxy({} as SqliteDatabase, {
   get(_target, property) {
     const connection = getDb();
     const value = Reflect.get(connection, property, connection) as unknown;
