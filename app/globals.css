@@ -367,6 +367,13 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   border-top: 1px solid var(--line);
   margin: 1.25em 0;
 }
+.article-list {
+  margin: 0 0 0.95em;
+  padding-left: 1.35em;
+}
+.article-list li {
+  margin: 0.25em 0;
+}
 .article-markdown a {
   color: var(--green);
   text-decoration: underline;

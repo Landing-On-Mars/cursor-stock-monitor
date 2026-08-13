@@ -147,15 +147,31 @@ function MarkdownText({ value }: { value: string }) {
           );
         }
 
-        if (trimmed.startsWith("> ")) {
-          const quote = trimmed
-            .split("\n")
+        const quoteLines = trimmed.split("\n");
+        if (quoteLines.every((line) => /^>\s?/.test(line) || !line.trim())) {
+          const quote = quoteLines
             .map((line) => line.replace(/^>\s?/, ""))
             .join("\n");
           return (
             <blockquote className="article-quote" key={`q-${index}`}>
               {renderInline(quote)}
             </blockquote>
+          );
+        }
+
+        const listLines = trimmed.split("\n").filter((line) => line.trim());
+        if (
+          listLines.length > 0 &&
+          listLines.every((line) => /^[-*]\s+/.test(line))
+        ) {
+          return (
+            <ul className="article-list" key={`ul-${index}`}>
+              {listLines.map((line, lineIndex) => (
+                <li key={`li-${index}-${lineIndex}`}>
+                  {renderInline(line.replace(/^[-*]\s+/, ""))}
+                </li>
+              ))}
+            </ul>
           );
         }
 
