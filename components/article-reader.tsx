@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, FileText, LoaderCircle, Pencil, Save, X } from "lucide-react";
+import { FileText, LoaderCircle, Pencil, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 export type ArticleSummary = {
@@ -18,7 +18,6 @@ type ArticleDetail = ArticleSummary & {
   content: string;
   rawContent?: string;
   author: string;
-  obsidianUri?: string;
 };
 
 type ContentPart =
@@ -254,12 +253,6 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
             </p>
           </div>
           <div className="article-reader-actions">
-            {detail?.obsidianUri && (
-              <a className="btn" href={detail.obsidianUri}>
-                <ExternalLink size={14} />
-                Obsidian
-              </a>
-            )}
             {detail && !editing ? (
               <button
                 className="btn"

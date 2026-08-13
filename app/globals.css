@@ -497,7 +497,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .watch-category-watch { background: var(--amber-soft); color: var(--amber); }
 .watch-category-archive { background: #eef0f2; color: #65707a; }
 .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
-.row-actions button, .modal-head button {
+.row-actions button, .modal-head button:not(.btn) {
   align-items: center;
   background: transparent;
   border: 0;
@@ -509,7 +509,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
   justify-content: center;
   width: 28px;
 }
-.row-actions button:hover, .modal-head button:hover { background: #edf1ed; color: var(--green); }
+.row-actions button:hover, .modal-head button:not(.btn):hover { background: #edf1ed; color: var(--green); }
 .row-actions button.move-action { font-size: 9px; gap: 4px; padding: 0 7px; white-space: nowrap; width: auto; }
 .row-actions button.danger-action:hover { background: var(--red-soft); color: var(--red); }
 .row-actions button:disabled { cursor: wait; opacity: .4; }

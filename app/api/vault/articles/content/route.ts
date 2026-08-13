@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notesRootOrThrow } from "@/lib/notes-root";
-import {
-  buildObsidianUri,
-  readVaultArticle,
-  writeVaultArticle,
-} from "@/lib/vault/articles";
+import { readVaultArticle, writeVaultArticle } from "@/lib/vault/articles";
 
 export const dynamic = "force-dynamic";
 
 function payload(notesRoot: string, articlePath: string) {
-  const article = readVaultArticle(notesRoot, articlePath);
-  return {
-    ...article,
-    obsidianUri: buildObsidianUri(notesRoot, article.path),
-  };
+  return readVaultArticle(notesRoot, articlePath);
 }
 
 export async function GET(request: NextRequest) {

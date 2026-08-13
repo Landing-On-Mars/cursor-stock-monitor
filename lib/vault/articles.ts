@@ -184,9 +184,3 @@ function replaceMarkdownBody(source: string, body: string) {
   const header = source.slice(0, end + 4).replace(/[ \t]+$/u, "");
   return `${header}\n\n${normalized}`;
 }
-
-export function buildObsidianUri(vaultRoot: string, relativePath: string) {
-  const vaultName = path.basename(vaultRoot);
-  const file = assertArticlePath(relativePath).replace(/\.md$/i, "");
-  return `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(file)}`;
-}
