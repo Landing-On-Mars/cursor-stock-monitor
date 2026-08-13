@@ -23,7 +23,7 @@ function toVaultTier(category: WatchlistCategory) {
 function assertStockNotePath(notePath: string) {
   const normalized = notePath.replace(/\\/g, "/").replace(/^\/+/, "");
   if (
-    !/^Stocks\/(CN|HK|US)\/[^/]+\.md$/.test(normalized) ||
+    !/^Stocks\/(CN|HK|US|Unsupported)\/[^/]+\.md$/.test(normalized) ||
     normalized.includes("..")
   ) {
     throw new Error(`不是可同步的股票笔记路径：${notePath}`);

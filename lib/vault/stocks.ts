@@ -78,39 +78,64 @@ function toCategory(tier: string): WatchlistCategory {
 function toMarket(value: string): Market {
   const market = value.trim().toUpperCase();
   if (market === "US" || market === "HK" || market === "CN") return market;
-  throw new Error(`不支持的市场：${value}`);
+  return "OTHER";
+}
+
+function stockFromNote(
+  vaultRoot: string,
+  notePath: string,
+  fallback: Record<string, string> = {},
+): VaultStock {
+  const absolute = path.join(vaultRoot, notePath);
+  if (!fs.existsSync(absolute)) {
+    throw new Error(`股票笔记不存在：${notePath}`);
+  }
+
+  const source = fs.readFileSync(absolute, "utf8");
+  const { data, content } = parseFrontmatter(source);
+  const symbol = asString(data.symbol, fallback.symbol);
+  const market = toMarket(asString(data.market, fallback.market || "OTHER"));
+
+  return {
+    symbol,
+    name: asString(data.name, fallback.name),
+    market,
+    category: toCategory(asString(data.tier, fallback.tier)),
+    notePath,
+    exchange: asString(data.exchange),
+    currency: asString(data.currency),
+    industries: asStringArray(data.industries),
+    tags: asStringArray(data.tags),
+    thesis: extractThesis(content),
+    status: asString(data.status, "active"),
+  };
+}
+
+function scanUnsupportedNotes(vaultRoot: string, seen: Set<string>) {
+  const dir = path.join(vaultRoot, "Stocks", "Unsupported");
+  if (!fs.existsSync(dir)) return [];
+
+  return fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith(".md"))
+    .map((name) => `Stocks/Unsupported/${name}`)
+    .filter((notePath) => !seen.has(notePath))
+    .map((notePath) => stockFromNote(vaultRoot, notePath, { market: "OTHER" }));
 }
 
 export function scanVaultStocks(vaultRoot: string): VaultStock[] {
   const rows = readStocksIndex(vaultRoot);
   const stocks: VaultStock[] = [];
+  const seen = new Set<string>();
 
   for (const row of rows) {
     const notePath = row.note_path;
-    const absolute = path.join(vaultRoot, notePath);
-    if (!fs.existsSync(absolute)) {
-      throw new Error(`股票笔记不存在：${notePath}`);
-    }
-
-    const source = fs.readFileSync(absolute, "utf8");
-    const { data, content } = parseFrontmatter(source);
-    const symbol = asString(data.symbol, row.symbol);
-    const market = toMarket(asString(data.market, row.market));
-
-    stocks.push({
-      symbol,
-      name: asString(data.name, row.name),
-      market,
-      category: toCategory(asString(data.tier, row.tier)),
-      notePath,
-      exchange: asString(data.exchange),
-      currency: asString(data.currency),
-      industries: asStringArray(data.industries),
-      tags: asStringArray(data.tags),
-      thesis: extractThesis(content),
-      status: asString(data.status, "active"),
-    });
+    const stock = stockFromNote(vaultRoot, notePath, row);
+    stocks.push(stock);
+    seen.add(notePath.replace(/\\/g, "/"));
   }
+
+  stocks.push(...scanUnsupportedNotes(vaultRoot, seen));
 
   return stocks.sort((left, right) => {
     if (left.category !== right.category) {

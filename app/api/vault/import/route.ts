@@ -32,7 +32,7 @@ export async function GET() {
     databaseDir: store.configuredDir || store.filePath,
   };
 
-  const stockRoot = journal.resolved;
+  const stockRoot = notesRoot || journal.resolved;
   if (!stockRoot) {
     return NextResponse.json(payload);
   }
@@ -67,18 +67,30 @@ export async function POST(request: Request) {
   }
 
   const journalRoot = resolveVaultPath(body.vaultPath);
-  if (!journalRoot) {
-    return NextResponse.json(
-      { error: "未找到 Journal，请先填写 Journal 路径再导入到 Google Drive。" },
-      { status: 404 },
-    );
+  let notesRoot = resolveNotesRoot();
+  if (!notesRoot) {
+    if (!journalRoot) {
+      return NextResponse.json(
+        { error: "未找到 Drive Vault。请先填写 Journal 路径并导入到 Google Drive。" },
+        { status: 404 },
+      );
+    }
   }
 
   try {
     invalidateArticleCache();
-    const copied = copyJournalToDriveVault(journalRoot);
-    const notesRoot = resolveNotesRoot() || copied.notesRoot;
-    const stocks = scanVaultStocks(journalRoot);
+    if (!notesRoot && journalRoot) {
+      const copied = copyJournalToDriveVault(journalRoot);
+      notesRoot = resolveNotesRoot() || copied.notesRoot;
+    }
+    if (!notesRoot) {
+      return NextResponse.json(
+        { error: "还没有 Drive 笔记库，请先从 Journal 导入。" },
+        { status: 404 },
+      );
+    }
+
+    const stocks = scanVaultStocks(notesRoot);
     const articleCounts = articleCountBySymbol(notesRoot);
 
     const importStocks = getDb().transaction(() => {

@@ -89,7 +89,7 @@ function migrateWatchlistCategories(database: SqliteDatabase) {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         symbol TEXT NOT NULL COLLATE NOCASE,
         name TEXT NOT NULL,
-        market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN')),
+        market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN', 'OTHER')),
         category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'ARCHIVE')),
         note TEXT NOT NULL DEFAULT '',
         note_path TEXT NOT NULL DEFAULT '',
@@ -120,6 +120,50 @@ function migrateWatchlistCategories(database: SqliteDatabase) {
   })();
 }
 
+function migrateWatchlistMarkets(database: SqliteDatabase) {
+  const table = database
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'watchlist_items'",
+    )
+    .get() as { sql?: string } | undefined;
+
+  if (!table?.sql || table.sql.includes("'OTHER'")) return;
+
+  database.transaction(() => {
+    database.exec(`
+      CREATE TABLE watchlist_items_next (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        symbol TEXT NOT NULL COLLATE NOCASE,
+        name TEXT NOT NULL,
+        market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN', 'OTHER')),
+        category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'ARCHIVE')),
+        note TEXT NOT NULL DEFAULT '',
+        note_path TEXT NOT NULL DEFAULT '',
+        exchange TEXT NOT NULL DEFAULT '',
+        currency TEXT NOT NULL DEFAULT '',
+        industries TEXT NOT NULL DEFAULT '[]',
+        tags TEXT NOT NULL DEFAULT '[]',
+        thesis TEXT NOT NULL DEFAULT '',
+        article_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(symbol, market)
+      );
+
+      INSERT INTO watchlist_items_next (
+        id, symbol, name, market, category, note, note_path, exchange,
+        currency, industries, tags, thesis, article_count, created_at
+      )
+      SELECT
+        id, symbol, name, market, category, note, note_path, exchange,
+        currency, industries, tags, thesis, article_count, created_at
+      FROM watchlist_items;
+
+      DROP TABLE watchlist_items;
+      ALTER TABLE watchlist_items_next RENAME TO watchlist_items;
+    `);
+  })();
+}
+
 function createDatabase(filePath: string) {
   ensureDatabaseDir(filePath);
   const database = new SqliteDatabase(filePath);
@@ -135,7 +179,7 @@ function createDatabase(filePath: string) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       symbol TEXT NOT NULL COLLATE NOCASE,
       name TEXT NOT NULL,
-      market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN')),
+      market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN', 'OTHER')),
       category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'ARCHIVE')),
       note TEXT NOT NULL DEFAULT '',
       note_path TEXT NOT NULL DEFAULT '',
@@ -168,6 +212,7 @@ function createDatabase(filePath: string) {
     "INTEGER NOT NULL DEFAULT 0",
   );
   migrateWatchlistCategories(database);
+  migrateWatchlistMarkets(database);
   dropLegacyArticleStore(database);
 
   const legacyCleared = database

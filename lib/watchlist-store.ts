@@ -64,7 +64,7 @@ export function listWatchlistItems() {
            WHEN 'ARCHIVE' THEN 2
            ELSE 3
          END,
-         CASE market WHEN 'HK' THEN 0 WHEN 'CN' THEN 1 ELSE 2 END,
+         CASE market WHEN 'HK' THEN 0 WHEN 'CN' THEN 1 WHEN 'US' THEN 2 ELSE 3 END,
          symbol ASC`,
     )
     .all() as WatchlistRow[];

@@ -35,6 +35,7 @@ function toYahooSymbol(symbol: string, market: Market, exchange?: string) {
     const digits = upper.replace(/\D/g, "");
     return `${digits.padStart(4, "0")}.HK`;
   }
+  if (market === "OTHER") return upper;
   if (/\.(SS|SZ)$/i.test(upper)) return upper;
   if (exchange === "SHH") return `${upper.replace(/\D/g, "").padStart(6, "0")}.SS`;
   if (exchange === "SHZ") return `${upper.replace(/\D/g, "").padStart(6, "0")}.SZ`;
@@ -79,15 +80,9 @@ export async function GET(request: NextRequest) {
 
     const data = (await response.json()) as YahooSearchResponse;
     const results = (data.quotes ?? [])
-      .filter(
-        (quote) =>
-          quote.quoteType === "EQUITY" &&
-          quote.symbol &&
-          quote.exchange &&
-          exchangeMarkets[quote.exchange],
-      )
+      .filter((quote) => quote.quoteType === "EQUITY" && quote.symbol)
       .map((quote) => {
-        const market = exchangeMarkets[quote.exchange as string];
+        const market = exchangeMarkets[quote.exchange as string] ?? "OTHER";
         const yahooSymbol = toYahooSymbol(
           quote.symbol as string,
           market,

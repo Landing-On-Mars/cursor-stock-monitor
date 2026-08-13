@@ -29,7 +29,7 @@ function assertManagedPath(vaultRoot: string, relativePath: string) {
   const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
   if (
     normalized.includes("..") ||
-    !(normalized === INDEX_PATH || /^Stocks\/(CN|HK|US)\/[^/]+\.md$/.test(normalized))
+    !(normalized === INDEX_PATH || /^Stocks\/(CN|HK|US|Unsupported)\/[^/]+\.md$/.test(normalized))
   ) {
     throw new Error(`不允许提交的 Vault 路径：${relativePath}`);
   }
@@ -52,7 +52,7 @@ function isTierOnlyDiff(vaultRoot: string, relativePath: string) {
     return (
       changedLines.length > 0 &&
       changedLines.every((line) =>
-        /^[+-][^,]+,[^,]+,(US|HK|CN),(core|watch|archive),Stocks\/(CN|HK|US)\/.+\.md$/.test(
+        /^[+-][^,]+,[^,]+,(US|HK|CN|OTHER),(core|watch|archive),Stocks\/(CN|HK|US|Unsupported)\/.+\.md$/.test(
           line,
         ),
       )

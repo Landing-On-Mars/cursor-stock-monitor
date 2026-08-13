@@ -9,13 +9,14 @@ function marketBadge(article: VaultArticle) {
   if (symbol.endsWith(".HK")) return "HK";
   if (symbol.endsWith(".SS") || symbol.endsWith(".SZ")) return "CN";
   if (/^[A-Z]+$/.test(symbol)) return "US";
-  return symbol.slice(0, 2);
+  return "其他";
 }
 
 function marketClass(badge: string) {
   if (badge === "HK") return "market-hk";
   if (badge === "CN") return "market-cn";
   if (badge === "US") return "market-us";
+  if (badge === "其他") return "market-other";
   return "";
 }
 

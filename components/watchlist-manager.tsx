@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  MARKET_BADGES,
+  MARKET_LABELS,
   type Market,
   type WatchlistCategory,
   type WatchlistItem,
@@ -26,11 +28,7 @@ const categoryText: Record<WatchlistCategory, string> = {
   ARCHIVE: "路人",
 };
 
-const marketText: Record<Market, string> = {
-  US: "美股",
-  HK: "港股",
-  CN: "A股",
-};
+const marketText = MARKET_LABELS;
 
 type FormState = {
   symbol: string;
@@ -159,6 +157,7 @@ export function WatchlistManager({
       HK: items.filter((item) => item.market === "HK").length,
       CN: items.filter((item) => item.market === "CN").length,
       US: items.filter((item) => item.market === "US").length,
+      OTHER: items.filter((item) => item.market === "OTHER").length,
     }),
     [items],
   );
@@ -478,7 +477,7 @@ export function WatchlistManager({
             ))}
           </div>
           <div className="segment-control">
-            {(["ALL", "HK", "CN", "US"] as const).map((value) => (
+            {(["ALL", "HK", "CN", "US", "OTHER"] as const).map((value) => (
               <button
                 className={market === value ? "active" : ""}
                 key={value}
@@ -518,7 +517,7 @@ export function WatchlistManager({
             <div className="watchlist-empty">
               <Star size={20} />
               <strong>还没有可显示的股票</strong>
-              <span>先从 Vault 导入 75 只标的，或手动添加一只。</span>
+              <span>先导入 Vault 自选，或手动添加一只。</span>
             </div>
           ) : (
             visibleItems.map((item) => (
@@ -536,7 +535,7 @@ export function WatchlistManager({
                 tabIndex={0}
               >
                 <span className={`market-icon market-${item.market.toLowerCase()}`}>
-                  {item.market}
+                  {MARKET_BADGES[item.market]}
                 </span>
                 <strong className="dense-symbol">{item.symbol}</strong>
                 <span className="dense-name">
@@ -639,7 +638,7 @@ export function WatchlistManager({
                           type="button"
                         >
                           <span className={`market-icon market-${result.market.toLowerCase()}`}>
-                            {result.market}
+                            {MARKET_BADGES[result.market]}
                           </span>
                           <span className="stock-result-main">
                             <strong>{result.name}</strong>
