@@ -38,6 +38,12 @@ function fmtNum(n: number | null, digits = 2) {
   return n.toFixed(digits);
 }
 
+function fmtYield(n: number | null) {
+  if (n == null || Number.isNaN(n)) return "—";
+  const pct = n <= 1 ? n * 100 : n;
+  return `${pct.toFixed(2)}%`;
+}
+
 export function ResearchCockpit({ symbol, market, name }: Props) {
   const [data, setData] = useState<ResearchPayload | null>(null);
   const [quote, setQuote] = useState<QuoteSnapshot | null>(null);
@@ -148,65 +154,75 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   return (
     <div className="cockpit-stack">
       <section className="card cockpit-hero">
-        <div className="cockpit-hero-top">
-          <div>
-            <p className="eyebrow">
-              {market} · {stock?.exchange || "交易所待填"}
-            </p>
-            <h2>
-              {displayName} <span>{symbol}</span>
-            </h2>
-            <p className="muted-copy">{stock?.summary || "一句话定位还没写。"}</p>
+        <h2>
+          {displayName} <span>{symbol}</span>
+        </h2>
+        <div className="cockpit-split">
+          <div className="quote-grid">
+            <div>
+              <span>现价</span>
+              <strong className={up ? "up" : "down"}>{fmtNum(quote?.price ?? null)}</strong>
+            </div>
+            <div>
+              <span>涨跌</span>
+              <strong className={up ? "up" : "down"}>
+                {quote?.changePercent != null ? `${quote.changePercent.toFixed(2)}%` : "—"}
+              </strong>
+            </div>
+            <div>
+              <span>市值</span>
+              <strong>{fmtCap(quote?.marketCap ?? null)}</strong>
+            </div>
+            <div>
+              <span>PE</span>
+              <strong>{fmtNum(quote?.trailingPE ?? null, 1)}</strong>
+            </div>
+            <div>
+              <span>远期PE</span>
+              <strong>{fmtNum(quote?.forwardPE ?? null, 1)}</strong>
+            </div>
+            <div>
+              <span>PB</span>
+              <strong>{fmtNum(quote?.priceToBook ?? null)}</strong>
+            </div>
+            <div>
+              <span>EPS</span>
+              <strong>{fmtNum(quote?.eps ?? null)}</strong>
+            </div>
+            <div>
+              <span>股息率</span>
+              <strong>{fmtYield(quote?.dividendYield ?? null)}</strong>
+            </div>
+          </div>
+          <div className="focus-panel">
+            <h3>现在该看什么</h3>
+            <div className="focus-form">
+              <input type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} />
+              <button className="btn btn-primary" type="button" onClick={addNote}>
+                记下
+              </button>
+              <textarea
+                rows={2}
+                placeholder="跟踪点"
+                value={noteBody}
+                onChange={(event) => setNoteBody(event.target.value)}
+              />
+            </div>
+            {notes.length > 0 ? (
+              <ul className="focus-list">
+                {notes.map((note) => (
+                  <li key={note.id}>
+                    <time>{note.notedAt}</time>
+                    <p>{note.body}</p>
+                    <button type="button" onClick={() => removeNote(note.id)}>
+                      删除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </div>
-        <div className="quote-grid">
-          <div>
-            <span>现价</span>
-            <strong className={up ? "up" : "down"}>{fmtNum(quote?.price ?? null)}</strong>
-          </div>
-          <div>
-            <span>涨跌</span>
-            <strong className={up ? "up" : "down"}>
-              {quote?.changePercent != null ? `${quote.changePercent.toFixed(2)}%` : "—"}
-            </strong>
-          </div>
-          <div>
-            <span>市值</span>
-            <strong>{fmtCap(quote?.marketCap ?? null)}</strong>
-          </div>
-          <div>
-            <span>PE</span>
-            <strong>{fmtNum(quote?.trailingPE ?? null, 1)}</strong>
-          </div>
-          <div>
-            <span>远期PE</span>
-            <strong>{fmtNum(quote?.forwardPE ?? null, 1)}</strong>
-          </div>
-          <div>
-            <span>PB</span>
-            <strong>{fmtNum(quote?.priceToBook ?? null)}</strong>
-          </div>
-          <div>
-            <span>EPS</span>
-            <strong>{fmtNum(quote?.eps ?? null)}</strong>
-          </div>
-          <div>
-            <span>52周</span>
-            <strong>
-              {fmtNum(quote?.fiftyTwoWeekLow ?? null)} – {fmtNum(quote?.fiftyTwoWeekHigh ?? null)}
-            </strong>
-          </div>
-        </div>
-        {quote?.error ? <p className="muted-copy">{quote.error} 办公网打不开 Yahoo 时会这样。</p> : null}
-        {!data.vault.ok ? (
-          <p className="muted-copy">
-            Vault 还没接上。去{" "}
-            <a href="/settings" className="text-link">
-              设置
-            </a>{" "}
-            填写本机路径后，这里会读 Markdown。
-          </p>
-        ) : null}
       </section>
 
       <section className="card">
@@ -221,12 +237,9 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
       <section className="card">
         <div className="card-head">
           <h2>关联文章</h2>
-          <p>{data.articles.length} 篇</p>
         </div>
         {data.articles.length === 0 ? (
-          <p className="cockpit-empty-inline">
-            Vault 里还没有标 {symbol} 的文章。在 frontmatter 写 tickers: [{symbol}]。
-          </p>
+          <p className="cockpit-empty-inline">还没有关联文章。</p>
         ) : (
           <ul className="article-list">
             {data.articles.map((article) => (
@@ -244,52 +257,12 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
 
       <section className="card">
         <div className="card-head">
-          <div>
-            <h2>现在该看什么</h2>
-            <p>自己写跟踪点，并标上日期</p>
-          </div>
-        </div>
-        <div className="cockpit-pad">
-          <div className="focus-form">
-            <input type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} />
-            <textarea
-              rows={3}
-              placeholder="例如：等 4/24 财报，看数据中心指引有没有下调。"
-              value={noteBody}
-              onChange={(event) => setNoteBody(event.target.value)}
-            />
-            <button className="btn btn-primary" type="button" onClick={addNote}>
-              记下
-            </button>
-          </div>
-          {notes.length === 0 ? (
-            <p className="muted-copy">还没有跟踪笔记。</p>
-          ) : (
-            <ul className="focus-list">
-              {notes.map((note) => (
-                <li key={note.id}>
-                  <time>{note.notedAt}</time>
-                  <p>{note.body}</p>
-                  <button type="button" onClick={() => removeNote(note.id)}>
-                    删除
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="card-head">
           <h2>投资逻辑</h2>
         </div>
         {stock?.thesis ? (
           <pre className="thesis-body">{stock.thesis}</pre>
         ) : (
-          <p className="cockpit-empty-inline">
-            {stock ? `打开 Vault 里 ${stock.path}，在「投资逻辑」下写要点。` : "Vault 里还没有这只股票的档案。"}
-          </p>
+          <p className="cockpit-empty-inline">还没有投资逻辑。</p>
         )}
       </section>
 
@@ -298,7 +271,7 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           <h2>预期跟踪</h2>
         </div>
         {!stock || stock.expectations.length === 0 ? (
-          <p className="cockpit-empty-inline">还没有「预期跟踪」段落。</p>
+          <p className="cockpit-empty-inline">还没有预期跟踪。</p>
         ) : (
           <ul className="metric-list">
             {stock.expectations.map((row) => (
