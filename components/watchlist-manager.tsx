@@ -56,7 +56,12 @@ async function readError(response: Response) {
   return body?.error ?? "操作失败，请稍后重试。";
 }
 
-export function WatchlistManager() {
+type WatchlistManagerProps = {
+  selectedId?: number | null;
+  onSelect?: (item: WatchlistItem) => void;
+};
+
+export function WatchlistManager({ selectedId = null, onSelect }: WatchlistManagerProps) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [category, setCategory] = useState<WatchlistCategory>("CORE");
   const [query, setQuery] = useState("");
@@ -72,6 +77,11 @@ export function WatchlistManager() {
   const [searchError, setSearchError] = useState("");
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequest = useRef(0);
+  const onSelectRef = useRef(onSelect);
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   useEffect(() => {
     let active = true;
@@ -85,6 +95,10 @@ export function WatchlistManager() {
         if (!active) return;
         setItems(data);
         setError("");
+        if (data.length === 0) return;
+        const preferred =
+          data.find((item) => item.category === "CORE") ?? data[0];
+        onSelectRef.current?.(preferred);
       })
       .catch((requestError: unknown) => {
         if (!active) return;
@@ -203,6 +217,7 @@ export function WatchlistManager() {
       const item = (await response.json()) as WatchlistItem;
       setItems((current) => [...current, item]);
       setCategory(item.category);
+      onSelect?.(item);
       setModalOpen(false);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "添加失败。");
@@ -250,7 +265,15 @@ export function WatchlistManager() {
         method: "DELETE",
       });
       if (!response.ok) throw new Error(await readError(response));
-      setItems((current) => current.filter((entry) => entry.id !== item.id));
+      setItems((current) => {
+        const remaining = current.filter((entry) => entry.id !== item.id);
+        if (selectedId === item.id) {
+          const next =
+            remaining.find((entry) => entry.category === "CORE") ?? remaining[0];
+          if (next) onSelect?.(next);
+        }
+        return remaining;
+      });
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "删除失败。");
     } finally {
@@ -308,7 +331,19 @@ export function WatchlistManager() {
             </div>
           ) : (
             visibleItems.map((item) => (
-              <div className="managed-watch-row" key={item.id}>
+              <div
+                className={`managed-watch-row ${selectedId === item.id ? "selected" : ""} ${onSelect ? "selectable" : ""}`}
+                key={item.id}
+                onClick={() => onSelect?.(item)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect?.(item);
+                  }
+                }}
+                role={onSelect ? "button" : undefined}
+                tabIndex={onSelect ? 0 : undefined}
+              >
                 <span className={`market-icon market-${item.market.toLowerCase()}`}>
                   {item.market}
                 </span>
@@ -323,7 +358,7 @@ export function WatchlistManager() {
                 <span className={`watch-category watch-category-${item.category.toLowerCase()}`}>
                   {categoryText[item.category]}
                 </span>
-                <div className="row-actions">
+                <div className="row-actions" onClick={(event) => event.stopPropagation()}>
                   <button
                     className="move-action"
                     disabled={busyId === item.id}

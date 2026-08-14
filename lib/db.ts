@@ -32,26 +32,23 @@ function createDatabase() {
     );
   `);
 
-  const seeded = database
-    .prepare("SELECT value FROM app_meta WHERE key = 'watchlist_seeded'")
-    .get();
-
-  if (!seeded) {
-    const seed = database.prepare(`
+  const seed = database.prepare(`
       INSERT OR IGNORE INTO watchlist_items
         (symbol, name, market, category, note)
       VALUES (?, ?, ?, ?, ?)
     `);
 
+  const claimed = database
+    .prepare(
+      "INSERT OR IGNORE INTO app_meta (key, value) VALUES ('watchlist_seeded', '1')",
+    )
+    .run();
+
+  if (claimed.changes === 1) {
     database.transaction(() => {
-      seed.run("NVDA", "NVIDIA", "US", "CORE", "AI 算力核心跟踪标的");
-      seed.run("0700", "腾讯控股", "HK", "CORE", "游戏与广告业务恢复");
-      seed.run("600519", "贵州茅台", "CN", "WATCH", "等待渠道库存进一步改善");
-      database
-        .prepare(
-          "INSERT INTO app_meta (key, value) VALUES ('watchlist_seeded', '1')",
-        )
-        .run();
+      seed.run("MRVL", "Marvell Technology", "US", "CORE", "光DSP 与定制 ASIC");
+      seed.run("0700", "腾讯控股", "HK", "CORE", "微信生态与广告增量");
+      seed.run("3993", "洛阳钼业", "HK", "WATCH", "铜钴金产量与并购节奏");
     })();
   }
 
