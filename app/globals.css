@@ -550,14 +550,14 @@ code { font-size: 11px; }
   margin-left: 6px;
 }
 .focus-head { gap: 10px; }
+.focus-actions { align-items: center; display: flex; gap: 8px; margin-left: auto; }
+.focus-head .btn { font-size: 12px; padding: 6px 10px; }
 .focus-date {
   background: #fbfcfb;
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--muted);
-  flex: 0 0 auto;
   font-size: 12px;
-  margin-left: auto;
   padding: 3px 6px;
   width: auto;
 }
@@ -597,7 +597,6 @@ code { font-size: 11px; }
   resize: vertical;
   width: 100%;
 }
-.focus-panel .btn { align-self: flex-end; }
 .kline { display: grid; gap: 8px; }
 .kline-svg { display: block; height: 220px; width: 100%; }
 .article-list { list-style: none; margin: 0; padding: 4px 0 10px; }

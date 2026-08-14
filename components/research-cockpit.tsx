@@ -201,12 +201,17 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         <section className="card focus-card">
           <div className="card-head focus-head">
             <h2>现在该看什么</h2>
-            <input
-              className="focus-date"
-              type="date"
-              value={noteDate}
-              onChange={(event) => setNoteDate(event.target.value)}
-            />
+            <div className="focus-actions">
+              <button className="btn btn-primary" type="button" onClick={addNote}>
+                记下
+              </button>
+              <input
+                className="focus-date"
+                type="date"
+                value={noteDate}
+                onChange={(event) => setNoteDate(event.target.value)}
+              />
+            </div>
           </div>
           <div className="focus-panel">
             <textarea
@@ -215,9 +220,6 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               value={noteBody}
               onChange={(event) => setNoteBody(event.target.value)}
             />
-            <button className="btn btn-primary" type="button" onClick={addNote}>
-              记下
-            </button>
             {notes.length > 0 ? (
               <ul className="focus-list">
                 {notes.map((note) => (
