@@ -2,9 +2,10 @@ import "server-only";
 
 import { toYahooSymbol } from "../vault/symbols";
 import type { QuoteSnapshot } from "../quote-types";
+import { STATS_VERSION, quoteCacheReady, resolveChangePercent } from "./cache-policy";
 import { changeFromBars, coversRange, dateKey, mergeBars, sliceBars } from "./csv";
 import { emptyEastmoney, fetchEastmoneyQuote } from "./eastmoney";
-import { isFresh, readCachedQuote, writeCachedQuote } from "./store";
+import { readCachedQuote, writeCachedQuote } from "./store";
 import { fetchYahooQuote } from "./yahoo";
 import { emptyStats, mergeStats, type YahooStats } from "./yahoo-fields";
 
@@ -36,15 +37,12 @@ export async function loadQuote(
   symbol: string,
   market: string,
   range: string,
+  options?: { force?: boolean },
 ): Promise<QuoteSnapshot> {
   const yahooSymbol = toYahooSymbol(symbol, market);
   const cached = readCachedQuote(symbol, market);
   const cacheReady =
-    cached != null &&
-    isFresh(cached.snapshot) &&
-    coversRange(cached.bars, range) &&
-    (cached.snapshot.statsVersion ?? 0) >= 4 &&
-    cached.snapshot.marketCap != null;
+    !options?.force && quoteCacheReady(cached?.snapshot, coversRange(cached?.bars ?? [], range));
 
   if (cached && cacheReady) {
     return present(cached.snapshot, cached.bars, range, { fromCache: true, stale: false });
@@ -57,8 +55,15 @@ export async function loadQuote(
   const yahoo = yahooResult.status === "fulfilled" ? yahooResult.value : null;
   const eastmoney = eastmoneyResult.status === "fulfilled" ? eastmoneyResult.value : emptyEastmoney();
 
-  if (yahooResult.status === "rejected") console.error("Yahoo quote failed:", yahooResult.reason);
-  if (eastmoneyResult.status === "rejected") console.error("Eastmoney quote failed:", eastmoneyResult.reason);
+  const fetchErrors: string[] = [];
+  if (yahooResult.status === "rejected") {
+    console.error("Yahoo quote failed:", yahooResult.reason);
+    fetchErrors.push(`K线：${errorMessage(yahooResult.reason)}`);
+  }
+  if (eastmoneyResult.status === "rejected") {
+    console.error("Eastmoney quote failed:", eastmoneyResult.reason);
+    fetchErrors.push(`估值：${errorMessage(eastmoneyResult.reason)}`);
+  }
 
   const bars = mergeBars(cached?.bars ?? [], yahoo?.bars ?? []);
   const yahooStats = snapshotStats(yahoo);
@@ -69,9 +74,13 @@ export async function loadQuote(
 
   if (bars.length === 0 && stats.marketCap == null && (yahoo?.price ?? eastmoney.price) == null) {
     if (cached && (cached.bars.length > 0 || cached.snapshot.price != null)) {
-      return present(cached.snapshot, cached.bars, range, { fromCache: true, stale: true });
+      return present(cached.snapshot, cached.bars, range, {
+        fromCache: true,
+        stale: true,
+        error: fetchErrors.length ? fetchErrors.join("；") : "行情暂时不可用，已用本地缓存。",
+      });
     }
-    return emptySnapshot(yahooSymbol, "行情暂时不可用。");
+    return emptySnapshot(yahooSymbol, fetchErrors.join("；") || "行情暂时不可用。");
   }
 
   const snapshot: QuoteSnapshot = {
@@ -95,8 +104,9 @@ export async function loadQuote(
     fiftyTwoWeekLow: yahoo?.fiftyTwoWeekLow ?? cached?.snapshot.fiftyTwoWeekLow ?? null,
     bars: [],
     fetchedAt: Date.now(),
-    source: eastmoney.marketCap != null ? "eastmoney" : (yahoo?.source ?? "yahoo"),
-    statsVersion: 4,
+    source: eastmoney.marketCap != null || eastmoney.trailingPE != null ? "eastmoney" : (yahoo?.source ?? "yahoo"),
+    statsVersion: STATS_VERSION,
+    error: stats.marketCap == null && fetchErrors.length ? fetchErrors.join("；") : undefined,
   };
   writeCachedQuote(symbol, market, { snapshot, bars });
   return present(snapshot, bars, range, { fromCache: false, stale: false });
@@ -120,19 +130,27 @@ function present(
   snapshot: QuoteSnapshot,
   bars: QuoteBarLike[],
   range: string,
-  flags: { fromCache: boolean; stale: boolean },
+  flags: { fromCache: boolean; stale: boolean; error?: string },
 ): QuoteSnapshot {
   const sliced = sliceBars(bars, range);
   const last = sliced[sliced.length - 1] ?? bars[bars.length - 1];
+  const dailyChange = changeFromBars(sliced.length >= 2 ? sliced : bars);
+  const changePercent = resolveChangePercent(snapshot.changePercent, dailyChange, snapshot.statsVersion);
   return {
     ...snapshot,
+    changePercent,
     bars: sliced,
     asOf: last ? dateKey(last.time) : undefined,
     fromCache: flags.fromCache,
     stale: flags.stale,
     forwardDividendYield: snapshot.forwardDividendYield ?? snapshot.dividendYield ?? null,
-    error: flags.stale ? undefined : snapshot.error,
+    error: flags.error ?? (flags.stale ? undefined : snapshot.error),
   };
+}
+
+function errorMessage(reason: unknown): string {
+  if (reason instanceof Error && reason.message) return reason.message;
+  return String(reason);
 }
 
 type QuoteBarLike = { time: number; open: number; high: number; low: number; close: number };
