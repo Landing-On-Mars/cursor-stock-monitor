@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { readLocalConfig } from "@/lib/local-config";
 import { defaultVaultCandidates, isRetiredVaultPath } from "./defaults";
+import { isVaultArticleAssetPath, normalizeVaultRelative } from "./article-media";
 
 export type VaultSource = "env" | "saved" | "auto" | null;
 
@@ -62,14 +63,22 @@ export function describeVaultPath() {
 }
 
 export function vaultFile(relativePath: string): string | null {
+  return vaultResolve(relativePath, (relative) => relative.endsWith(".md"));
+}
+
+export function vaultArticleAsset(relativePath: string): string | null {
+  return vaultResolve(relativePath, (relative) => isVaultArticleAssetPath(relative));
+}
+
+function vaultResolve(relativePath: string, allowed: (relative: string) => boolean): string | null {
   const root = resolveVaultPath();
   if (!root) return null;
 
   const resolved = path.resolve(root, relativePath);
   const relative = path.relative(root, resolved);
   if (relative.startsWith("..") || path.isAbsolute(relative)) return null;
-  if (!resolved.endsWith(".md") || !fs.existsSync(/* turbopackIgnore: true */ resolved)) {
-    return null;
-  }
+  const normalized = normalizeVaultRelative(relative);
+  if (!allowed(normalized)) return null;
+  if (!fs.existsSync(/* turbopackIgnore: true */ resolved)) return null;
   return resolved;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { splitArticleBody, type ArticleBlock } from "@/lib/vault/article-media";
 
 type ArticleDetail = {
   path: string;
@@ -56,6 +57,8 @@ export function ArticleReader({ path, onClose }: ArticleReaderProps) {
     };
   }, [path]);
 
+  const blocks = article ? splitArticleBody(article.body) : [];
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div
@@ -80,13 +83,36 @@ export function ArticleReader({ path, onClose }: ArticleReaderProps) {
         <div className="article-body">
           {error ? <div className="inline-error">{error}</div> : null}
           {!article && !error ? <p className="muted-copy">正在读取 Vault 文章…</p> : null}
-          {article ? <pre className="article-fallback">{stripFront(article.body)}</pre> : null}
+          {article
+            ? blocks.map((block, index) => (
+                <ArticleChunk key={`${block.type}-${index}`} articlePath={article.path} block={block} />
+              ))
+            : null}
         </div>
       </div>
     </div>
   );
 }
 
-function stripFront(body: string) {
-  return body.replace(/^---[\s\S]*?---\s*/, "").trim() || "（空文章）";
+function ArticleChunk({ articlePath, block }: { articlePath: string; block: ArticleBlock }) {
+  const [failed, setFailed] = useState(false);
+
+  if (block.type === "text") {
+    return <pre className="article-fallback">{block.text}</pre>;
+  }
+
+  if (failed) {
+    return <p className="muted-copy">图片未找到：{block.src}</p>;
+  }
+
+  const href = block.remote
+    ? block.src
+    : `/api/research/article/asset?article=${encodeURIComponent(articlePath)}&src=${encodeURIComponent(block.src)}`;
+
+  return (
+    <figure className="article-figure">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img alt={block.alt} src={href} onError={() => setFailed(true)} />
+    </figure>
+  );
 }
