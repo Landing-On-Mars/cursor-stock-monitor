@@ -1,8 +1,8 @@
 import "server-only";
 
-import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { SqliteDatabase } from "@/lib/sqlite";
 
 const databasePath =
   process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "dashboard.db");
@@ -10,7 +10,7 @@ const databasePath =
 fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 
 function createDatabase() {
-  const database = new Database(databasePath);
+  const database = new SqliteDatabase(databasePath);
   database.pragma("journal_mode = WAL");
   database.pragma("foreign_keys = ON");
 
@@ -56,7 +56,7 @@ function createDatabase() {
 }
 
 const globalForDatabase = globalThis as typeof globalThis & {
-  dashboardDatabase?: Database.Database;
+  dashboardDatabase?: SqliteDatabase;
 };
 
 export const db = globalForDatabase.dashboardDatabase ?? createDatabase();

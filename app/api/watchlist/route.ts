@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isUniqueConstraintError } from "@/lib/sqlite";
 import {
   MARKETS,
   WATCHLIST_CATEGORIES,
@@ -87,11 +88,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(toWatchlistItem(row), { status: 201 });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "SQLITE_CONSTRAINT_UNIQUE"
-    ) {
+    if (isUniqueConstraintError(error)) {
       return NextResponse.json(
         { error: `${symbol} 已经在自选股中。` },
         { status: 409 },
