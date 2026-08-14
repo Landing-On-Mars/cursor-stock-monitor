@@ -10,3 +10,8 @@ alwaysApply: true
 - 家里 Vault（Obsidian Journal）：`C:\Users\musk\Documents\Journal`
 
 办公室启动前先 `cd C:\Users\ht.tu\cursor-stock-monitor`，不要在 `H:\` 根目录跑 npm / npx。
+
+Vault 路径在设置页填写并保存在本机 `data/local-config.json`（不进 Git）：
+- 办公室：这台电脑的 Google Drive / Journal
+- 家里：家里电脑的 Google Drive / Journal
+每台电脑各保存一次。

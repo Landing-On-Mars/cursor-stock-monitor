@@ -4,13 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArticleMarkdown, type ParsedArticle } from "./parse-article";
 import { parseStockMarkdown } from "./parse-stock";
-import { resolveVaultPath, vaultFile } from "./path";
+import { describeVaultPath, resolveVaultPath, vaultFile } from "./path";
 import { articleMentionsStock, symbolKey } from "./symbols";
 import type { ArticleSummary, PeerStock, StockCockpit } from "./types";
 
 export type VaultStatus = {
   ok: boolean;
   path: string | null;
+  savedPath: string;
+  source: "env" | "saved" | "auto" | null;
   stockCount: number;
   articleCount: number;
 };
@@ -24,13 +26,30 @@ let cachedRoot: string | null | undefined;
 let stockIndex: Map<string, StockRecord> | null = null;
 let articleIndex: ParsedArticle[] | null = null;
 
+export function resetVaultCache() {
+  cachedRoot = undefined;
+  stockIndex = null;
+  articleIndex = null;
+}
+
 export function getVaultStatus(): VaultStatus {
-  const root = resolveVaultPath();
-  if (!root) return { ok: false, path: null, stockCount: 0, articleCount: 0 };
-  loadIndexes(root);
+  const described = describeVaultPath();
+  if (!described.ok || !described.resolvedPath) {
+    return {
+      ok: false,
+      path: described.resolvedPath,
+      savedPath: described.savedPath,
+      source: described.source,
+      stockCount: 0,
+      articleCount: 0,
+    };
+  }
+  loadIndexes(described.resolvedPath);
   return {
     ok: true,
-    path: root,
+    path: described.resolvedPath,
+    savedPath: described.savedPath,
+    source: described.source,
     stockCount: stockIndex?.size ?? 0,
     articleCount: articleIndex?.length ?? 0,
   };

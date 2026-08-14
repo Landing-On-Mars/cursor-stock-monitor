@@ -29,6 +29,8 @@ VAULT_PATH=C:\Users\musk\Documents\Journal
 cd C:\Users\ht.tu\cursor-stock-monitor
 ```
 
+Vault 在 **设置** 页填写 Google Drive 里 Journal 的完整路径，点保存。路径记在本机 `data/local-config.json`，办公室和家里互不影响。
+
 ## Getting Started
 
 ```bash

@@ -417,6 +417,9 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .empty-settings { align-items: center; display: flex; flex-direction: column; padding: 70px 20px; text-align: center; }
 .empty-settings h2 { font-size: 16px; margin: 15px 0 7px; }
 .empty-settings p { color: var(--muted); font-size: 11px; max-width: 380px; }
+.settings-card { padding: 22px; }
+.settings-form { display: grid; gap: 12px; }
+.settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .managed-watch-row.selectable { cursor: pointer; }
 .managed-watch-row.selectable:hover { background: #f6f8f6; }
