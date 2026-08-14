@@ -94,7 +94,7 @@ export default function SettingsPage() {
             <span>Vault 路径</span>
             <input
               onChange={(event) => setInput(event.target.value)}
-              placeholder="例如 G:\我的云端硬盘\Journal 或 C:\Users\ht.tu\Google Drive\Journal"
+              placeholder="例如 C:\Users\musk\My Drive\Northstar\Vault"
               value={input}
             />
           </label>
@@ -130,8 +130,8 @@ export default function SettingsPage() {
             <span className="icon-box" style={{ height: 42, width: 42 }}><Settings size={20} /></span>
             <h2>还没有找到 Vault</h2>
             <p>
-              在资源管理器中打开 Google Drive 里的 Journal，复制地址栏完整路径贴到上面。
-              办公室和家里各保存一次即可。
+              在资源管理器中打开 Google Drive 里的 Northstar\Vault，复制地址栏完整路径贴到上面。
+              办公室和家里各保存一次即可。K 线在 Vault\MarketData，会随 Drive 同步。
             </p>
           </div>
         )}

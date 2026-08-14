@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { readLocalConfig } from "@/lib/local-config";
+import { defaultVaultCandidates, isRetiredVaultPath } from "./defaults";
 
 export type VaultSource = "env" | "saved" | "auto" | null;
 
@@ -13,12 +14,12 @@ function isVaultRoot(candidate: string) {
 
 export function configuredVaultPath() {
   const fromEnv = process.env.VAULT_PATH?.trim();
-  if (fromEnv) {
+  if (fromEnv && !isRetiredVaultPath(fromEnv)) {
     return { path: path.resolve(fromEnv), source: "env" as const };
   }
 
   const saved = readLocalConfig().vaultPath?.trim();
-  if (saved) {
+  if (saved && !isRetiredVaultPath(saved)) {
     return { path: path.resolve(saved), source: "saved" as const };
   }
 
@@ -26,11 +27,7 @@ export function configuredVaultPath() {
 }
 
 function autoCandidates() {
-  return [
-    path.resolve(process.cwd(), "../investment-vault"),
-    path.resolve(process.cwd(), "../../investment-vault"),
-    path.join(os.homedir(), "Documents", "Journal"),
-  ];
+  return defaultVaultCandidates(os.homedir());
 }
 
 export function resolveVaultPath(): string | null {
