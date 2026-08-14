@@ -10,7 +10,8 @@ import {
 
 type Props = {
   selected?: { symbol: string; market: string } | null;
-  onSelect: (item: { symbol: string; market: string; name: string }) => void;
+  onSelect: (item: WatchlistItem) => void;
+  reloadToken?: number;
 };
 
 type GroupState = Record<WatchlistCategory, boolean>;
@@ -32,7 +33,7 @@ function readGroups(): GroupState {
   }
 }
 
-export function WatchRail({ selected, onSelect }: Props) {
+export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [query, setQuery] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -82,7 +83,7 @@ export function WatchRail({ selected, onSelect }: Props) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadToken]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -119,11 +120,6 @@ export function WatchRail({ selected, onSelect }: Props) {
       window.localStorage.setItem("northstar-watch-groups", JSON.stringify(next));
       return next;
     });
-    await load();
-  }
-
-  async function remove(id: number) {
-    await fetch(`/api/watchlist/${id}`, { method: "DELETE" });
     await load();
   }
 
@@ -200,18 +196,15 @@ export function WatchRail({ selected, onSelect }: Props) {
                     <p className="watch-empty">{query ? "没有匹配" : "还没有"}</p>
                   ) : (
                     rows.map((item) => (
-                      <div
+                      <button
                         key={item.id}
+                        type="button"
                         className={`watch-rail-row ${selected?.symbol === item.symbol && selected.market === item.market ? "is-active" : ""}`}
+                        onClick={() => onSelect(item)}
                       >
-                        <button type="button" className="watch-rail-main" onClick={() => onSelect(item)}>
-                          <strong>{item.symbol}</strong>
-                          <span>{item.name}</span>
-                        </button>
-                        <button type="button" className="watch-rail-del" onClick={() => remove(item.id)}>
-                          ×
-                        </button>
-                      </div>
+                        <strong>{item.symbol}</strong>
+                        <span>{item.name}</span>
+                      </button>
                     ))
                   )
                 ) : null}

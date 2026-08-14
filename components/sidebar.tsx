@@ -23,6 +23,7 @@ const items = [
   { href: "/mistakes", label: "交易错题本", icon: NotebookPen },
   { href: "/checklist", label: "交易检查", icon: CheckSquare2 },
   { href: "/portfolio", label: "组合管理", icon: BriefcaseBusiness },
+  { href: "/settings", label: "设置", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -72,11 +73,6 @@ export function Sidebar() {
             );
           })}
         </nav>
-
-        <div className="sidebar-spacer" />
-        <Link className="nav-item" href="/settings" title="设置">
-          <Settings size={16} /><span>设置</span>
-        </Link>
       </aside>
     </>
   );

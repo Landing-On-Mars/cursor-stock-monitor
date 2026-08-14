@@ -166,6 +166,8 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .btn:hover { border-color: #cad1cb; }
 .btn-primary { background: var(--green); border-color: var(--green); color: white; }
 .btn-primary:hover { background: #184a36; border-color: #184a36; }
+.btn-danger { color: var(--red); }
+.btn-danger:hover { background: var(--red-soft); border-color: #f2d5d5; }
 
 .stats-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, 1fr); margin-bottom: 14px; }
 .stat-card, .card {
@@ -595,21 +597,21 @@ code { font-size: 11px; }
   background: #fbfcfa;
   border-right: 1px solid var(--line);
   display: flex;
-  flex: 0 0 176px;
+  flex: 0 0 148px;
   flex-direction: column;
   gap: 8px;
   height: 100vh;
   overflow: auto;
-  padding: 12px 8px 16px;
+  padding: 12px 6px 16px;
   position: sticky;
   top: 0;
-  width: 176px;
+  width: 148px;
 }
 .watch-rail.is-collapsed {
   align-items: center;
-  flex-basis: 48px;
-  padding: 12px 6px;
-  width: 48px;
+  flex-basis: 44px;
+  padding: 12px 4px;
+  width: 44px;
 }
 .watch-rail-head {
   align-items: center;
@@ -666,43 +668,26 @@ code { font-size: 11px; }
 }
 .watch-empty { color: var(--muted); font-size: 11px; margin: 0; padding: 4px 6px 8px; }
 .watch-rail-row {
-  align-items: center;
-  border-radius: 8px;
-  display: flex;
-  gap: 4px;
-  padding: 2px;
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  display: grid;
+  gap: 1px;
+  padding: 6px 7px;
+  text-align: left;
+  width: 100%;
 }
 .watch-rail-row.is-active { background: var(--green-soft); }
 .watch-rail-row:hover { background: #f0f3ef; }
-.watch-rail-main {
-  background: none;
-  border: 0;
-  cursor: pointer;
-  flex: 1;
-  min-width: 0;
-  padding: 5px 6px;
-  text-align: left;
-}
-.watch-rail-main strong, .watch-rail-main span { display: block; }
-.watch-rail-main strong { font-size: 12px; }
-.watch-rail-main span {
-  color: var(--muted);
-  font-size: 10px;
-  margin-top: 2px;
+.watch-rail-row strong, .watch-rail-row span {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.watch-rail-del {
-  background: none;
-  border: 0;
-  color: #b0b6b1;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 4px 8px;
-}
-.watch-rail-del:hover { color: var(--red); }
+.watch-rail-row strong { font-size: 12px; }
+.watch-rail-row span { color: var(--muted); font-size: 10px; }
 .watch-add { display: grid; gap: 8px; margin-top: 8px; }
 .watch-add-row { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
 .watch-add-toggle {
