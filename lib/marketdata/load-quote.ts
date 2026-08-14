@@ -13,11 +13,16 @@ export function emptySnapshot(yahooSymbol: string, error: string): QuoteSnapshot
     changePercent: null,
     currency: "",
     marketCap: null,
+    enterpriseValue: null,
     trailingPE: null,
     forwardPE: null,
+    enterpriseToEbitda: null,
+    profitMargin: null,
+    operatingMargin: null,
+    forwardDividendYield: null,
+    dividendYield: null,
     priceToBook: null,
     eps: null,
-    dividendYield: null,
     fiftyTwoWeekHigh: null,
     fiftyTwoWeekLow: null,
     bars: [],
@@ -33,7 +38,10 @@ export async function loadQuote(
   const yahooSymbol = toYahooSymbol(symbol, market);
   const cached = readCachedQuote(symbol, market);
   const cacheReady =
-    cached != null && isFresh(cached.snapshot) && coversRange(cached.bars, range);
+    cached != null &&
+    isFresh(cached.snapshot) &&
+    coversRange(cached.bars, range) &&
+    (cached.snapshot.statsVersion ?? 0) >= 2;
 
   if (cached && cacheReady) {
     return present(cached.snapshot, cached.bars, range, { fromCache: true, stale: false });
@@ -78,6 +86,7 @@ function present(
     asOf: last ? dateKey(last.time) : undefined,
     fromCache: flags.fromCache,
     stale: flags.stale,
+    forwardDividendYield: snapshot.forwardDividendYield ?? snapshot.dividendYield ?? null,
     error: flags.stale ? undefined : snapshot.error,
   };
 }

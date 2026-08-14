@@ -596,7 +596,7 @@ code { font-size: 11px; }
   display: grid;
   flex: 1;
   gap: 6px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: 10px 12px 12px;
 }
 .quote-grid div {
@@ -605,7 +605,7 @@ code { font-size: 11px; }
   padding: 7px 8px;
 }
 .quote-grid span, .quote-grid strong { display: block; }
-.quote-grid span { color: var(--muted); font-size: 13px; }
+.quote-grid span { color: var(--muted); font-size: 11px; }
 .quote-grid strong { font-size: 13px; margin-top: 3px; }
 .quote-grid .up { color: var(--red); }
 .quote-grid .down { color: var(--green); }
@@ -853,7 +853,7 @@ code { font-size: 11px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .dashboard-grid, .content-grid { grid-template-columns: 1fr; }
   .mistake-grid { grid-template-columns: 1fr 1fr; }
-  .quote-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .quote-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .cockpit-split { grid-template-columns: 1fr; }
   .research-main { padding: 0 20px 40px; }
 }

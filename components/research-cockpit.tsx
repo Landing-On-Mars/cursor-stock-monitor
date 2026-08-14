@@ -188,7 +188,11 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               <strong>{fmtCap(quote?.marketCap ?? null)}</strong>
             </div>
             <div>
-              <span>PE</span>
+              <span>企业价值</span>
+              <strong>{fmtCap(quote?.enterpriseValue ?? null)}</strong>
+            </div>
+            <div>
+              <span>滚动PE</span>
               <strong>{fmtNum(quote?.trailingPE ?? null, 1)}</strong>
             </div>
             <div>
@@ -196,16 +200,20 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               <strong>{fmtNum(quote?.forwardPE ?? null, 1)}</strong>
             </div>
             <div>
-              <span>PB</span>
-              <strong>{fmtNum(quote?.priceToBook ?? null)}</strong>
+              <span>EV/EBITDA</span>
+              <strong>{fmtNum(quote?.enterpriseToEbitda ?? null, 1)}</strong>
             </div>
             <div>
-              <span>EPS</span>
-              <strong>{fmtNum(quote?.eps ?? null)}</strong>
+              <span>净利率</span>
+              <strong>{fmtYield(quote?.profitMargin ?? null)}</strong>
             </div>
             <div>
-              <span>股息率</span>
-              <strong>{fmtYield(quote?.dividendYield ?? null)}</strong>
+              <span>营业利润率</span>
+              <strong>{fmtYield(quote?.operatingMargin ?? null)}</strong>
+            </div>
+            <div>
+              <span>远期股息率</span>
+              <strong>{fmtYield(quote?.forwardDividendYield ?? quote?.dividendYield ?? null)}</strong>
             </div>
           </div>
         </section>

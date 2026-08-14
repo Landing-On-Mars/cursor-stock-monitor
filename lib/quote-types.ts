@@ -12,11 +12,16 @@ export type QuoteSnapshot = {
   changePercent: number | null;
   currency: string;
   marketCap: number | null;
+  enterpriseValue: number | null;
   trailingPE: number | null;
   forwardPE: number | null;
+  enterpriseToEbitda: number | null;
+  profitMargin: number | null;
+  operatingMargin: number | null;
+  forwardDividendYield: number | null;
+  dividendYield: number | null;
   priceToBook: number | null;
   eps: number | null;
-  dividendYield: number | null;
   fiftyTwoWeekHigh: number | null;
   fiftyTwoWeekLow: number | null;
   bars: QuoteBar[];
@@ -25,5 +30,6 @@ export type QuoteSnapshot = {
   asOf?: string;
   stale?: boolean;
   fromCache?: boolean;
+  statsVersion?: number;
   error?: string;
 };

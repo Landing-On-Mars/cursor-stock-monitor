@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { QuoteBar, QuoteSnapshot } from "../quote-types";
+import { emptyStats, mergeStats, statsFromQuote, statsFromQuoteSummary } from "./yahoo-fields";
 
 type YahooChart = {
   chart?: {
@@ -24,25 +25,6 @@ type YahooChart = {
   };
 };
 
-type YahooQuote = {
-  quoteResponse?: {
-    result?: Array<{
-      regularMarketPrice?: number;
-      regularMarketChangePercent?: number;
-      currency?: string;
-      marketCap?: number;
-      trailingPE?: number;
-      forwardPE?: number;
-      priceToBook?: number;
-      epsTrailingTwelveMonths?: number;
-      trailingAnnualDividendYield?: number;
-      dividendYield?: number;
-      fiftyTwoWeekHigh?: number;
-      fiftyTwoWeekLow?: number;
-    }>;
-  };
-};
-
 const yahooHeaders = {
   Accept: "application/json",
   "User-Agent": "Mozilla/5.0 Northstar/1.0",
@@ -58,19 +40,30 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapsho
   const quoteUrl = new URL("https://query1.finance.yahoo.com/v7/finance/quote");
   quoteUrl.searchParams.set("symbols", yahooSymbol);
 
-  const [chartResponse, quoteResponse] = await Promise.all([
-    fetch(chartUrl, { cache: "no-store", headers: yahooHeaders, signal: AbortSignal.timeout(8_000) }),
-    fetch(quoteUrl, { cache: "no-store", headers: yahooHeaders, signal: AbortSignal.timeout(8_000) }),
+  const summaryUrl = new URL(
+    `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(yahooSymbol)}`,
+  );
+  summaryUrl.searchParams.set("modules", "summaryDetail,defaultKeyStatistics,financialData");
+
+  const [chartResult, quoteResult, summaryResult] = await Promise.allSettled([
+    fetchJson(chartUrl),
+    fetchJson(quoteUrl),
+    fetchJson(summaryUrl),
   ]);
 
-  if (!chartResponse.ok && !quoteResponse.ok) {
+  const chart = (settled(chartResult) ?? {}) as YahooChart;
+  const quote = settled(quoteResult);
+  const summary = settled(summaryResult);
+
+  if (
+    chartResult.status === "rejected" &&
+    quoteResult.status === "rejected" &&
+    summaryResult.status === "rejected"
+  ) {
     throw new Error("行情暂时不可用。");
   }
 
-  const chart = chartResponse.ok ? ((await chartResponse.json()) as YahooChart) : {};
-  const quote = quoteResponse.ok ? ((await quoteResponse.json()) as YahooQuote) : {};
   const result = chart.chart?.result?.[0];
-  const snapshot = quote.quoteResponse?.result?.[0];
   const series = result?.indicators?.quote?.[0];
   const times = result?.timestamp ?? [];
   const bars: QuoteBar[] = [];
@@ -84,26 +77,69 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapsho
     bars.push({ time: times[index] * 1000, open, high, low, close });
   }
 
-  const price = snapshot?.regularMarketPrice ?? result?.meta?.regularMarketPrice ?? null;
+  const stats = mergeStats(
+    summary ? statsFromQuoteSummary(summary) : emptyStats(),
+    quote ? statsFromQuote(quote) : emptyStats(),
+  );
+
+  const quoteRow = firstQuoteRow(quote);
+  const price = quoteRow?.regularMarketPrice ?? result?.meta?.regularMarketPrice ?? null;
   const previous = result?.meta?.chartPreviousClose ?? result?.meta?.previousClose ?? null;
   const changePercent =
-    snapshot?.regularMarketChangePercent ??
+    quoteRow?.regularMarketChangePercent ??
     (price != null && previous ? ((price - previous) / previous) * 100 : null);
+
+  if (bars.length === 0 && price == null && stats.marketCap == null) {
+    throw new Error("行情暂时不可用。");
+  }
 
   return {
     yahooSymbol,
     price,
     changePercent,
-    currency: snapshot?.currency ?? result?.meta?.currency ?? "",
-    marketCap: snapshot?.marketCap ?? null,
-    trailingPE: snapshot?.trailingPE ?? null,
-    forwardPE: snapshot?.forwardPE ?? null,
-    priceToBook: snapshot?.priceToBook ?? null,
-    eps: snapshot?.epsTrailingTwelveMonths ?? null,
-    dividendYield: snapshot?.dividendYield ?? snapshot?.trailingAnnualDividendYield ?? null,
-    fiftyTwoWeekHigh: snapshot?.fiftyTwoWeekHigh ?? null,
-    fiftyTwoWeekLow: snapshot?.fiftyTwoWeekLow ?? null,
+    currency: quoteRow?.currency ?? result?.meta?.currency ?? "",
+    marketCap: stats.marketCap,
+    enterpriseValue: stats.enterpriseValue,
+    trailingPE: stats.trailingPE,
+    forwardPE: stats.forwardPE,
+    enterpriseToEbitda: stats.enterpriseToEbitda,
+    profitMargin: stats.profitMargin,
+    operatingMargin: stats.operatingMargin,
+    forwardDividendYield: stats.forwardDividendYield,
+    dividendYield: stats.forwardDividendYield,
+    priceToBook: null,
+    eps: null,
+    fiftyTwoWeekHigh: quoteRow?.fiftyTwoWeekHigh ?? null,
+    fiftyTwoWeekLow: quoteRow?.fiftyTwoWeekLow ?? null,
     bars,
     source: "yahoo",
+    statsVersion: 2,
   };
+}
+
+async function fetchJson(url: URL): Promise<unknown> {
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: yahooHeaders,
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!response.ok) throw new Error(`Yahoo returned ${response.status}`);
+  return response.json();
+}
+
+function settled(result: PromiseSettledResult<unknown>): unknown | null {
+  return result.status === "fulfilled" ? result.value : null;
+}
+
+function firstQuoteRow(data: unknown): {
+  regularMarketPrice?: number;
+  regularMarketChangePercent?: number;
+  currency?: string;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+} | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const list = (data as { quoteResponse?: { result?: unknown[] } }).quoteResponse?.result;
+  const row = Array.isArray(list) ? list[0] : undefined;
+  return row && typeof row === "object" ? row : undefined;
 }
