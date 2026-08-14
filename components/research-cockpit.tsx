@@ -153,11 +153,13 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
 
   return (
     <div className="cockpit-stack">
-      <section className="card cockpit-hero">
-        <h2>
-          {displayName} <span>{symbol}</span>
-        </h2>
-        <div className="cockpit-split">
+      <div className="cockpit-split">
+        <section className="card quote-card">
+          <div className="card-head">
+            <h2>
+              {displayName} <span>{symbol}</span>
+            </h2>
+          </div>
           <div className="quote-grid">
             <div>
               <span>现价</span>
@@ -194,20 +196,28 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               <strong>{fmtYield(quote?.dividendYield ?? null)}</strong>
             </div>
           </div>
+        </section>
+
+        <section className="card focus-card">
+          <div className="card-head focus-head">
+            <h2>现在该看什么</h2>
+            <input
+              className="focus-date"
+              type="date"
+              value={noteDate}
+              onChange={(event) => setNoteDate(event.target.value)}
+            />
+          </div>
           <div className="focus-panel">
-            <h3>现在该看什么</h3>
-            <div className="focus-form">
-              <input type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} />
-              <button className="btn btn-primary" type="button" onClick={addNote}>
-                记下
-              </button>
-              <textarea
-                rows={2}
-                placeholder="跟踪点"
-                value={noteBody}
-                onChange={(event) => setNoteBody(event.target.value)}
-              />
-            </div>
+            <textarea
+              rows={5}
+              placeholder="跟踪点"
+              value={noteBody}
+              onChange={(event) => setNoteBody(event.target.value)}
+            />
+            <button className="btn btn-primary" type="button" onClick={addNote}>
+              记下
+            </button>
             {notes.length > 0 ? (
               <ul className="focus-list">
                 {notes.map((note) => (
@@ -222,8 +232,8 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               </ul>
             ) : null}
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <section className="card">
         <div className="card-head">

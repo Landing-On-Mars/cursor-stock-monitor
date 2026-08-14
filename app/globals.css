@@ -470,7 +470,6 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .managed-watch-row.selected { background: var(--green-soft); }
 .cockpit { display: grid; gap: 14px; }
 .cockpit-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr); }
-.cockpit-hero { padding: 14px 16px 16px; }
 .thesis-lead {
   color: var(--text);
   font-size: 14px;
@@ -531,18 +530,43 @@ code { font-size: 11px; }
 .research-layout { display: flex; min-height: 100vh; }
 .research-main { flex: 1; min-width: 0; padding: 0 28px 48px; }
 .cockpit-stack { display: grid; gap: 14px; }
-.cockpit-hero h2 { font-size: 18px; letter-spacing: -.03em; margin: 0 0 10px; }
-.cockpit-hero h2 span { color: var(--muted); font-size: 13px; font-weight: 600; }
 .cockpit-split {
-  align-items: start;
+  align-items: stretch;
   display: grid;
-  gap: 16px;
-  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.2fr);
+}
+.quote-card, .focus-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 228px;
+}
+.quote-card .card-head, .focus-card .card-head { padding: 11px 12px; }
+.quote-card .card-head h2, .focus-card .card-head h2 { font-size: 14px; margin: 0; }
+.quote-card .card-head h2 span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+.focus-head { gap: 10px; }
+.focus-date {
+  background: #fbfcfb;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 12px;
+  margin-left: auto;
+  padding: 3px 6px;
+  width: auto;
 }
 .quote-grid {
   display: grid;
+  flex: 1;
   gap: 6px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 10px 12px 12px;
 }
 .quote-grid div {
   background: var(--surface-soft);
@@ -554,7 +578,26 @@ code { font-size: 11px; }
 .quote-grid strong { font-size: 13px; margin-top: 3px; }
 .quote-grid .up { color: var(--red); }
 .quote-grid .down { color: var(--green); }
-.focus-panel h3 { font-size: 13px; margin: 0 0 8px; }
+.focus-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 10px 12px 12px;
+}
+.focus-panel textarea {
+  background: #fbfcfb;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  flex: 1;
+  font: inherit;
+  min-height: 112px;
+  padding: 8px 10px;
+  resize: vertical;
+  width: 100%;
+}
+.focus-panel .btn { align-self: flex-end; }
 .kline { display: grid; gap: 8px; }
 .kline-svg { display: block; height: 220px; width: 100%; }
 .article-list { list-style: none; margin: 0; padding: 4px 0 10px; }
@@ -568,21 +611,13 @@ code { font-size: 11px; }
 .article-list li:last-child { border-bottom: 0; }
 .article-list strong { font-size: 12px; }
 .article-list span { color: var(--muted); font-size: 10px; }
-.focus-form {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr auto;
+.focus-list {
+  list-style: none;
+  margin: 0;
+  max-height: 112px;
+  overflow: auto;
+  padding: 0;
 }
-.focus-form input,
-.focus-form textarea {
-  background: #fbfcfb;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 6px 8px;
-  width: 100%;
-}
-.focus-form textarea { grid-column: 1 / -1; min-height: 52px; resize: vertical; }
-.focus-list { list-style: none; margin: 6px 0 0; padding: 0; }
 .focus-list li {
   align-items: flex-start;
   border-top: 1px solid #eef0ed;
