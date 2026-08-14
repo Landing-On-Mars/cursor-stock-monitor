@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ArticleReader } from "@/components/article-reader";
 import { StockChart } from "@/components/stock-chart";
 import { sourceLabel } from "@/lib/marketdata/cache-policy";
 import type { QuoteSnapshot } from "@/lib/quote-types";
@@ -64,7 +65,7 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
-
+  const [articlePath, setArticlePath] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -315,11 +316,13 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           <ul className="article-list">
             {data.articles.map((article) => (
               <li key={article.path}>
-                <strong>{article.title}</strong>
-                <span>
-                  {article.publishedAt || "无日期"}
-                  {article.source ? ` · ${article.source}` : ""}
-                </span>
+                <button className="article-hit" type="button" onClick={() => setArticlePath(article.path)}>
+                  <strong>{article.title}</strong>
+                  <span>
+                    {article.publishedAt || "无日期"}
+                    {article.source ? ` · ${article.source}` : ""}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
@@ -363,6 +366,8 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           <pre className="cursor-prompt">{data.cursorPrompt}</pre>
         </section>
       ) : null}
+
+      {articlePath ? <ArticleReader key={articlePath} path={articlePath} onClose={() => setArticlePath(null)} /> : null}
     </div>
   );
 }
