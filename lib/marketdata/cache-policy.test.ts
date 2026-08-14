@@ -56,6 +56,7 @@ test("source labels distinguish cache from live eastmoney", () => {
   assert.equal(sourceLabel("eastmoney", true, false), "本地缓存");
   assert.equal(sourceLabel("eastmoney", false, false), "东方财富");
   assert.equal(sourceLabel("yahoo", true, true), "过期缓存");
+  assert.equal(sourceLabel("mixed", false, false), "Yahoo / 东财");
 });
 
 test("drops Yahoo two-year chart change from old snapshots", () => {

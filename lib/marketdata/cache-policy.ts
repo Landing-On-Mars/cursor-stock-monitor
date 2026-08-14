@@ -1,4 +1,4 @@
-export const STATS_VERSION = 5;
+export const STATS_VERSION = 6;
 export const CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 export type QuoteCacheMeta = {
@@ -34,6 +34,7 @@ export function resolveChangePercent(
 
 export function sourceLabel(source?: string, fromCache?: boolean, stale?: boolean): string {
   if (fromCache) return stale ? "过期缓存" : "本地缓存";
+  if (source === "mixed") return "Yahoo / 东财";
   if (source === "eastmoney") return "东方财富";
   if (source === "yahoo") return "Yahoo";
   return source?.trim() || "";

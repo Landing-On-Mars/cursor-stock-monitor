@@ -5,6 +5,7 @@ import type { QuoteSnapshot } from "../quote-types";
 import { STATS_VERSION, quoteCacheReady, resolveChangePercent } from "./cache-policy";
 import { changeFromBars, coversRange, dateKey, mergeBars, sliceBars } from "./csv";
 import { emptyEastmoney, fetchEastmoneyQuote } from "./eastmoney";
+import { fetchEastmoneyFundamentals } from "./eastmoney-f10";
 import { readCachedQuote, writeCachedQuote } from "./store";
 import { fetchYahooQuote } from "./yahoo";
 import { emptyStats, mergeStats, type YahooStats } from "./yahoo-fields";
@@ -48,29 +49,35 @@ export async function loadQuote(
     return present(cached.snapshot, cached.bars, range, { fromCache: true, stale: false });
   }
 
-  const [yahooResult, eastmoneyResult] = await Promise.allSettled([
+  const [yahooResult, eastmoneyResult, f10Result] = await Promise.allSettled([
     fetchYahooQuote(yahooSymbol),
     fetchEastmoneyQuote(symbol, market),
+    market === "US" ? Promise.resolve(emptyStats()) : fetchEastmoneyFundamentals(symbol, market),
   ]);
   const yahoo = yahooResult.status === "fulfilled" ? yahooResult.value : null;
   const eastmoney = eastmoneyResult.status === "fulfilled" ? eastmoneyResult.value : emptyEastmoney();
+  const f10 = f10Result.status === "fulfilled" ? f10Result.value : emptyStats();
 
   const fetchErrors: string[] = [];
   if (yahooResult.status === "rejected") {
     console.error("Yahoo quote failed:", yahooResult.reason);
-    fetchErrors.push(`K线：${errorMessage(yahooResult.reason)}`);
+    fetchErrors.push(`Yahoo：${errorMessage(yahooResult.reason)}`);
   }
   if (eastmoneyResult.status === "rejected") {
     console.error("Eastmoney quote failed:", eastmoneyResult.reason);
-    fetchErrors.push(`估值：${errorMessage(eastmoneyResult.reason)}`);
+    fetchErrors.push(`东财行情：${errorMessage(eastmoneyResult.reason)}`);
+  }
+  if (f10Result.status === "rejected" && market !== "US") {
+    console.error("Eastmoney F10 failed:", f10Result.reason);
   }
 
   const bars = mergeBars(cached?.bars ?? [], yahoo?.bars ?? []);
   const yahooStats = snapshotStats(yahoo);
+  const live = liveQuoteStats(eastmoney);
   const stats =
     market === "US"
-      ? mergeStats(yahooStats, eastmoney)
-      : mergeStats(eastmoney, yahooStats);
+      ? mergeStats(yahooStats, live)
+      : mergeStats(live, yahooStats, f10, eastmoney);
 
   if (bars.length === 0 && stats.marketCap == null && (yahoo?.price ?? eastmoney.price) == null) {
     if (cached && (cached.bars.length > 0 || cached.snapshot.price != null)) {
@@ -104,12 +111,36 @@ export async function loadQuote(
     fiftyTwoWeekLow: yahoo?.fiftyTwoWeekLow ?? cached?.snapshot.fiftyTwoWeekLow ?? null,
     bars: [],
     fetchedAt: Date.now(),
-    source: eastmoney.marketCap != null || eastmoney.trailingPE != null ? "eastmoney" : (yahoo?.source ?? "yahoo"),
+    source: quoteSource(yahooStats, eastmoney),
     statsVersion: STATS_VERSION,
     error: stats.marketCap == null && fetchErrors.length ? fetchErrors.join("；") : undefined,
   };
   writeCachedQuote(symbol, market, { snapshot, bars });
   return present(snapshot, bars, range, { fromCache: false, stale: false });
+}
+
+function liveQuoteStats(quote: YahooStats): YahooStats {
+  return {
+    marketCap: quote.marketCap,
+    enterpriseValue: null,
+    trailingPE: quote.trailingPE,
+    forwardPE: quote.forwardPE,
+    enterpriseToEbitda: null,
+    profitMargin: quote.profitMargin,
+    operatingMargin: quote.operatingMargin,
+    forwardDividendYield: null,
+  };
+}
+
+function quoteSource(yahooStats: YahooStats, eastmoney: YahooStats): string {
+  const yahooFilled =
+    yahooStats.enterpriseValue != null ||
+    yahooStats.forwardPE != null ||
+    yahooStats.profitMargin != null;
+  const eastmoneyFilled = eastmoney.marketCap != null || eastmoney.trailingPE != null;
+  if (yahooFilled && eastmoneyFilled) return "mixed";
+  if (yahooFilled) return "yahoo";
+  return eastmoneyFilled ? "eastmoney" : "yahoo";
 }
 
 function snapshotStats(snapshot: QuoteSnapshot | null): YahooStats {

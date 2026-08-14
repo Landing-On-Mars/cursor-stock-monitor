@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  asRatio,
   mergeStats,
   rawNumber,
   statsFromQuote,
@@ -61,4 +62,39 @@ test("falls back to the v7 quote payload when summary is missing a field", () =>
   assert.equal(merged.trailingPE, 10);
   assert.equal(merged.forwardDividendYield, 0.03);
   assert.equal(merged.operatingMargin, 0.11);
+});
+
+test("normalizes percent margins and drops junk Eastmoney yields", () => {
+  assert.equal(asRatio(0.30596), 0.30596);
+  assert.equal(asRatio(33.756), 0.33756);
+  assert.equal(asRatio(-3.72), null);
+
+  const merged = mergeStats(
+    {
+      marketCap: 1,
+      enterpriseValue: null,
+      trailingPE: 8,
+      forwardPE: null,
+      enterpriseToEbitda: null,
+      profitMargin: 0,
+      operatingMargin: 0,
+      forwardDividendYield: -3.72,
+    },
+    {
+      marketCap: 1,
+      enterpriseValue: 9e11,
+      trailingPE: 8,
+      forwardPE: 6.4,
+      enterpriseToEbitda: 3.8,
+      profitMargin: 0.306,
+      operatingMargin: 0.447,
+      forwardDividendYield: 0.0536,
+    },
+  );
+  assert.equal(merged.enterpriseValue, 9e11);
+  assert.equal(merged.forwardPE, 6.4);
+  assert.equal(merged.enterpriseToEbitda, 3.8);
+  assert.equal(merged.profitMargin, 0.306);
+  assert.equal(merged.operatingMargin, 0.447);
+  assert.equal(merged.forwardDividendYield, 0.0536);
 });

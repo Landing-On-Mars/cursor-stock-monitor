@@ -39,6 +39,33 @@ export function emptyStats(): YahooStats {
   };
 }
 
+/** Eastmoney often stores 0 / negatives as missing; Yahoo uses 0.30 ratios, F10 uses 30 percents. */
+export function asPositive(value: number | null): number | null {
+  if (value == null || !Number.isFinite(value) || value <= 0) return null;
+  return value;
+}
+
+export function asRatio(value: number | null): number | null {
+  if (value == null || !Number.isFinite(value) || value < 0) return null;
+  if (value === 0) return null;
+  if (value > 100) return null;
+  if (value > 1) return value / 100;
+  return value;
+}
+
+export function cleanStats(stats: YahooStats): YahooStats {
+  return {
+    marketCap: asPositive(stats.marketCap),
+    enterpriseValue: asPositive(stats.enterpriseValue),
+    trailingPE: asPositive(stats.trailingPE),
+    forwardPE: asPositive(stats.forwardPE),
+    enterpriseToEbitda: asPositive(stats.enterpriseToEbitda),
+    profitMargin: asRatio(stats.profitMargin),
+    operatingMargin: asRatio(stats.operatingMargin),
+    forwardDividendYield: asRatio(stats.forwardDividendYield),
+  };
+}
+
 export function statsFromQuoteSummary(data: unknown): YahooStats {
   const result = firstRecord(asRecord(asRecord(data)["quoteSummary"])["result"]);
   const summary = asRecord(result?.summaryDetail);
@@ -71,17 +98,20 @@ export function statsFromQuote(data: unknown): YahooStats {
   };
 }
 
-export function mergeStats(preferred: YahooStats, fallback: YahooStats): YahooStats {
-  return {
-    marketCap: preferred.marketCap ?? fallback.marketCap,
-    enterpriseValue: preferred.enterpriseValue ?? fallback.enterpriseValue,
-    trailingPE: preferred.trailingPE ?? fallback.trailingPE,
-    forwardPE: preferred.forwardPE ?? fallback.forwardPE,
-    enterpriseToEbitda: preferred.enterpriseToEbitda ?? fallback.enterpriseToEbitda,
-    profitMargin: preferred.profitMargin ?? fallback.profitMargin,
-    operatingMargin: preferred.operatingMargin ?? fallback.operatingMargin,
-    forwardDividendYield: preferred.forwardDividendYield ?? fallback.forwardDividendYield,
-  };
+export function mergeStats(...sources: YahooStats[]): YahooStats {
+  return sources.reduce<YahooStats>((acc, source) => {
+    const cleaned = cleanStats(source);
+    return {
+      marketCap: acc.marketCap ?? cleaned.marketCap,
+      enterpriseValue: acc.enterpriseValue ?? cleaned.enterpriseValue,
+      trailingPE: acc.trailingPE ?? cleaned.trailingPE,
+      forwardPE: acc.forwardPE ?? cleaned.forwardPE,
+      enterpriseToEbitda: acc.enterpriseToEbitda ?? cleaned.enterpriseToEbitda,
+      profitMargin: acc.profitMargin ?? cleaned.profitMargin,
+      operatingMargin: acc.operatingMargin ?? cleaned.operatingMargin,
+      forwardDividendYield: acc.forwardDividendYield ?? cleaned.forwardDividendYield,
+    };
+  }, emptyStats());
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

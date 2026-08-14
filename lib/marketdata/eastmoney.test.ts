@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { eastmoneySecid, statsFromEastmoney } from "./eastmoney";
+import { eastmoneySecid, eastmoneySecuCode, statsFromEastmoney } from "./eastmoney";
 
 test("builds Eastmoney secid for HK, CN and US", () => {
   assert.equal(eastmoneySecid("0700", "HK"), "116.00700");
@@ -8,6 +8,13 @@ test("builds Eastmoney secid for HK, CN and US", () => {
   assert.equal(eastmoneySecid("300750.SZ", "CN"), "0.300750");
   assert.equal(eastmoneySecid("600519", "CN"), "1.600519");
   assert.equal(eastmoneySecid("MRVL", "US"), "105.MRVL");
+});
+
+test("builds Eastmoney F10 secu codes", () => {
+  assert.equal(eastmoneySecuCode("0883", "HK"), "00883.HK");
+  assert.equal(eastmoneySecuCode("0700", "HK"), "00700.HK");
+  assert.equal(eastmoneySecuCode("600519", "CN"), "600519.SH");
+  assert.equal(eastmoneySecuCode("300750.SZ", "CN"), "300750.SZ");
 });
 
 test("maps Eastmoney quote fields onto valuation stats", () => {

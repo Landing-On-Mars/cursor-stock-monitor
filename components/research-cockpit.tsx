@@ -250,7 +250,9 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           </div>
           {quote?.error ? <p className="quote-error">{quote.error}</p> : null}
           {market !== "US" ? (
-            <p className="quote-hint">港股/A 股估值来自东方财富；企业价值、EV/EBITDA 该源没有，会保持 —。</p>
+            <p className="quote-hint">
+              现价、市值、滚动PE 走东财；EV、远期PE、利润率、股息优先 Yahoo。Yahoo 不通时用东财财报补利润率和股息。
+            </p>
           ) : null}
         </section>
 
