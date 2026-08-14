@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import {
+  CATEGORY_LABEL,
+  MARKET_LABEL,
+  WATCHLIST_CATEGORIES,
   type Market,
   type WatchlistCategory,
   type WatchlistItem,
@@ -16,7 +19,7 @@ type Props = {
 
 type GroupState = Record<WatchlistCategory, boolean>;
 
-const defaultGroups: GroupState = { CORE: true, WATCH: true };
+const defaultGroups: GroupState = { CORE: true, WATCH: true, OTHER: true };
 
 function readGroups(): GroupState {
   if (typeof window === "undefined") return defaultGroups;
@@ -27,6 +30,7 @@ function readGroups(): GroupState {
     return {
       CORE: parsed.CORE !== false,
       WATCH: parsed.WATCH !== false,
+      OTHER: parsed.OTHER !== false,
     };
   } catch {
     return defaultGroups;
@@ -177,7 +181,7 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
             onChange={(event) => setQuery(event.target.value)}
           />
 
-          {(["CORE", "WATCH"] as const).map((group) => {
+          {WATCHLIST_CATEGORIES.map((group) => {
             const rows = filtered.filter((item) => item.category === group);
             const opened = openGroups[group];
             return (
@@ -188,14 +192,11 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
                   onClick={() => toggleGroup(group)}
                 >
                   {opened ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  <span>{group === "CORE" ? "核心" : "观察"}</span>
+                  <span>{CATEGORY_LABEL[group]}</span>
                   <i>{rows.length}</i>
                 </button>
-                {opened ? (
-                  rows.length === 0 ? (
-                    <p className="watch-empty">{query ? "没有匹配" : "还没有"}</p>
-                  ) : (
-                    rows.map((item) => (
+                {opened
+                  ? rows.map((item) => (
                       <button
                         key={item.id}
                         type="button"
@@ -206,8 +207,7 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
                         <span>{item.name}</span>
                       </button>
                     ))
-                  )
-                ) : null}
+                  : null}
               </div>
             );
           })}
@@ -219,16 +219,21 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
                 <input placeholder="名称" value={name} onChange={(event) => setName(event.target.value)} />
                 <div className="watch-add-row">
                   <select value={market} onChange={(event) => setMarket(event.target.value as Market)}>
-                    <option value="US">美股</option>
-                    <option value="HK">港股</option>
-                    <option value="CN">A股</option>
+                    {Object.entries(MARKET_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
                   <select
                     value={category}
                     onChange={(event) => setCategory(event.target.value as WatchlistCategory)}
                   >
-                    <option value="CORE">核心</option>
-                    <option value="WATCH">观察</option>
+                    {WATCHLIST_CATEGORIES.map((value) => (
+                      <option key={value} value={value}>
+                        {CATEGORY_LABEL[value]}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="watch-add-row">

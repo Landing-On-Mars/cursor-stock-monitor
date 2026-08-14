@@ -20,12 +20,14 @@ import {
 const categoryText: Record<WatchlistCategory, string> = {
   CORE: "核心",
   WATCH: "观察",
+  OTHER: "其他",
 };
 
 const marketText: Record<Market, string> = {
   US: "美股",
   HK: "港股",
   CN: "A股",
+  OTHER: "其他",
 };
 
 type FormState = {
@@ -442,6 +444,7 @@ export function WatchlistManager({ selectedId = null, onSelect }: WatchlistManag
                   >
                     <option value="CORE">核心</option>
                     <option value="WATCH">观察</option>
+                    <option value="OTHER">其他</option>
                   </select>
                 </label>
                 <label className="field field-full">

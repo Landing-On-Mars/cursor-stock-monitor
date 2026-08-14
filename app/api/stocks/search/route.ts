@@ -24,6 +24,12 @@ const exchangeMarkets: Record<string, Market> = {
   HKG: "HK",
   SHH: "CN",
   SHZ: "CN",
+  TYO: "OTHER",
+  JPX: "OTHER",
+  OSA: "OTHER",
+  KSC: "OTHER",
+  KOE: "OTHER",
+  KOS: "OTHER",
 };
 
 function normalizeSymbol(symbol: string, market: Market) {

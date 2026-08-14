@@ -25,6 +25,15 @@ type FocusNote = {
   body: string;
 };
 
+function hasText(value?: string | null) {
+  return Boolean(
+    value
+      ?.replace(/^#+\s.*$/gm, "")
+      .replace(/[-*_>|`]/g, "")
+      .trim(),
+  );
+}
+
 function fmtCap(n: number | null) {
   if (n == null) return "—";
   if (n >= 1e12) return `${(n / 1e12).toFixed(2)}万亿`;
@@ -246,13 +255,11 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         </div>
       </section>
 
-      <section className="card">
-        <div className="card-head">
-          <h2>关联文章</h2>
-        </div>
-        {data.articles.length === 0 ? (
-          <p className="cockpit-empty-inline">还没有关联文章。</p>
-        ) : (
+      {data.articles.length > 0 ? (
+        <section className="card">
+          <div className="card-head">
+            <h2>关联文章</h2>
+          </div>
           <ul className="article-list">
             {data.articles.map((article) => (
               <li key={article.path}>
@@ -264,27 +271,23 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="card">
-        <div className="card-head">
-          <h2>投资逻辑</h2>
-        </div>
-        {stock?.thesis ? (
-          <pre className="thesis-body">{stock.thesis}</pre>
-        ) : (
-          <p className="cockpit-empty-inline">还没有投资逻辑。</p>
-        )}
-      </section>
+      {hasText(stock?.thesis) ? (
+        <section className="card">
+          <div className="card-head">
+            <h2>投资逻辑</h2>
+          </div>
+          <pre className="thesis-body">{stock?.thesis}</pre>
+        </section>
+      ) : null}
 
-      <section className="card">
-        <div className="card-head">
-          <h2>预期跟踪</h2>
-        </div>
-        {!stock || stock.expectations.length === 0 ? (
-          <p className="cockpit-empty-inline">还没有预期跟踪。</p>
-        ) : (
+      {stock && stock.expectations.length > 0 ? (
+        <section className="card">
+          <div className="card-head">
+            <h2>预期跟踪</h2>
+          </div>
           <ul className="metric-list">
             {stock.expectations.map((row) => (
               <li key={`${row.text}-${row.deadline}`}>
@@ -294,8 +297,8 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       {data.cursorPrompt ? (
         <section className="card cursor-prompt-card">

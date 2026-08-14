@@ -9,6 +9,52 @@ const databasePath =
 
 fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 
+function migrateWatchlistConstraints(database: SqliteDatabase) {
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const claimed = database
+      .prepare("INSERT OR IGNORE INTO app_meta (key, value) VALUES ('watchlist_schema_v2', '1')")
+      .run();
+
+    if (claimed.changes === 1) {
+      const row = database
+        .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'watchlist_items'")
+        .get() as { sql?: string } | undefined;
+      const sql = row?.sql ?? "";
+      const alreadyNew =
+        sql.includes("CORE', 'WATCH', 'OTHER") && sql.includes("'US', 'HK', 'CN', 'OTHER'");
+
+      if (!alreadyNew) {
+        database.exec(`
+          CREATE TABLE watchlist_items_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL COLLATE NOCASE,
+            name TEXT NOT NULL,
+            market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN', 'OTHER')),
+            category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'OTHER')),
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(symbol, market)
+          );
+          INSERT INTO watchlist_items_new (id, symbol, name, market, category, note, created_at)
+          SELECT id, symbol, name, market, category, note, created_at FROM watchlist_items;
+          DROP TABLE watchlist_items;
+          ALTER TABLE watchlist_items_new RENAME TO watchlist_items;
+        `);
+      }
+    }
+
+    database.exec("COMMIT");
+  } catch (error) {
+    try {
+      database.exec("ROLLBACK");
+    } catch {
+      // Ignore rollback errors after a failed BEGIN/COMMIT.
+    }
+    throw error;
+  }
+}
+
 function createDatabase() {
   const database = new SqliteDatabase(databasePath);
   database.pragma("journal_mode = WAL");
@@ -19,8 +65,8 @@ function createDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       symbol TEXT NOT NULL COLLATE NOCASE,
       name TEXT NOT NULL,
-      market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN')),
-      category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH')),
+      market TEXT NOT NULL CHECK (market IN ('US', 'HK', 'CN', 'OTHER')),
+      category TEXT NOT NULL CHECK (category IN ('CORE', 'WATCH', 'OTHER')),
       note TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(symbol, market)
@@ -40,6 +86,8 @@ function createDatabase() {
       value TEXT NOT NULL
     );
   `);
+
+  migrateWatchlistConstraints(database);
 
   const seed = database.prepare(`
       INSERT OR IGNORE INTO watchlist_items

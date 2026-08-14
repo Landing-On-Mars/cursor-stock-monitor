@@ -29,7 +29,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   if (!body.category || !WATCHLIST_CATEGORIES.includes(body.category)) {
-    return NextResponse.json({ error: "请选择核心或观察分组。" }, { status: 400 });
+    return NextResponse.json({ error: "请选择核心、观察或其他分组。" }, { status: 400 });
   }
 
   const result = db

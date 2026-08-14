@@ -25,4 +25,12 @@ test("Yahoo symbols keep exchange suffixes", () => {
   assert.equal(toYahooSymbol("000858", "CN"), "000858.SZ");
   assert.equal(toYahooSymbol("600036", "CN"), "600036.SS");
   assert.equal(toYahooSymbol("MRVL", "US"), "MRVL");
+  assert.equal(toYahooSymbol("6981.T", "OTHER"), "6981.T");
+  assert.equal(toYahooSymbol("005930.KS", "JP"), "005930.KS");
+});
+
+test("other-market stocks share the OTHER key", () => {
+  assert.equal(symbolKey("6981.T", "JP"), "OTHER:6981.T");
+  assert.equal(symbolKey("6981.T", "OTHER"), "OTHER:6981.T");
+  assert.equal(articleMentionsStock(["6981.T"], "6981.T", "OTHER"), true);
 });

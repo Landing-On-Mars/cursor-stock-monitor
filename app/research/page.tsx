@@ -4,7 +4,12 @@ import { useState } from "react";
 import { ArrowRightLeft, Trash2 } from "lucide-react";
 import { ResearchCockpit } from "@/components/research-cockpit";
 import { WatchRail } from "@/components/watch-rail";
-import type { WatchlistCategory, WatchlistItem } from "@/lib/watchlist-types";
+import {
+  CATEGORY_LABEL,
+  WATCHLIST_CATEGORIES,
+  type WatchlistCategory,
+  type WatchlistItem,
+} from "@/lib/watchlist-types";
 
 export default function ResearchPage() {
   const [selected, setSelected] = useState<WatchlistItem | null>(null);
@@ -39,7 +44,9 @@ export default function ResearchPage() {
     refreshRail();
   }
 
-  const otherPool = selected?.category === "CORE" ? "WATCH" : "CORE";
+  const moveTargets = selected
+    ? WATCHLIST_CATEGORIES.filter((category) => category !== selected.category)
+    : [];
 
   return (
     <div className="research-layout">
@@ -52,15 +59,18 @@ export default function ResearchPage() {
           </div>
           {selected ? (
             <div className="header-actions">
-              <button
-                className="btn"
-                disabled={busy}
-                type="button"
-                onClick={() => moveSelected(otherPool)}
-              >
-                <ArrowRightLeft size={14} />
-                {otherPool === "WATCH" ? "移到观察" : "移到核心"}
-              </button>
+              {moveTargets.map((category) => (
+                <button
+                  className="btn"
+                  disabled={busy}
+                  key={category}
+                  type="button"
+                  onClick={() => moveSelected(category)}
+                >
+                  <ArrowRightLeft size={14} />
+                  移到{CATEGORY_LABEL[category]}
+                </button>
+              ))}
               <button className="btn btn-danger" disabled={busy} type="button" onClick={removeSelected}>
                 <Trash2 size={14} />
                 移出自选
@@ -73,7 +83,6 @@ export default function ResearchPage() {
         ) : (
           <section className="card cockpit-empty">
             <strong>从左边目录点一只股票</strong>
-            <span>添加股票在目录底部。移出或换分组用右上角按钮。</span>
           </section>
         )}
       </div>
