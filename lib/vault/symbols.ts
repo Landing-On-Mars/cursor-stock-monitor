@@ -27,6 +27,20 @@ export function canonicalSymbol(symbol: string, market?: string | null): string 
   return stripped;
 }
 
+export function toYahooSymbol(symbol: string, market?: string | null): string {
+  const resolved = (market ?? inferMarket(symbol) ?? "US").toUpperCase();
+  const canonical = canonicalSymbol(symbol, resolved);
+  if (resolved === "HK") return `${canonical}.HK`;
+  if (resolved === "CN") {
+    const raw = symbol.trim().toUpperCase();
+    if (raw.endsWith(".SS") || raw.endsWith(".SZ")) return raw;
+    return canonical.startsWith("6") || canonical.startsWith("9")
+      ? `${canonical}.SS`
+      : `${canonical}.SZ`;
+  }
+  return canonical;
+}
+
 export function symbolKey(symbol: string, market?: string | null): string {
   const inferred = market ?? inferMarket(symbol);
   return `${inferred ?? "OTHER"}:${canonicalSymbol(symbol, inferred)}`;

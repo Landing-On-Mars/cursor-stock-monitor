@@ -114,8 +114,7 @@ export function cursorPrompt(stock: StockCockpit): string {
     stock.summary ? `当前一句话逻辑：${stock.summary}` : "",
     "请重点：",
     "1. 预期跟踪里哪些该打勾、哪些过期",
-    "2. 证伪条件有没有被碰到",
-    "3. Timeline 是否要补最近的财报或新闻",
+    "2. 投资逻辑有没有被新信息改写",
     "结论直接改对应 Markdown，不要另开一份。",
   ]
     .filter(Boolean)

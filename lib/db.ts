@@ -26,6 +26,15 @@ function createDatabase() {
       UNIQUE(symbol, market)
     );
 
+    CREATE TABLE IF NOT EXISTS focus_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      symbol TEXT NOT NULL COLLATE NOCASE,
+      market TEXT NOT NULL,
+      noted_at TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS app_meta (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL

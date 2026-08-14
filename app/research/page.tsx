@@ -2,28 +2,35 @@
 
 import { useState } from "react";
 import { ResearchCockpit } from "@/components/research-cockpit";
-import { WatchlistManager } from "@/components/watchlist-manager";
-import type { WatchlistItem } from "@/lib/watchlist-types";
+import { WatchRail } from "@/components/watch-rail";
 
 export default function ResearchPage() {
-  const [selected, setSelected] = useState<WatchlistItem | null>(null);
+  const [selected, setSelected] = useState<{
+    symbol: string;
+    market: string;
+    name: string;
+  } | null>(null);
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Stock cockpit</p>
-          <h1>个股研究</h1>
-          <p className="page-subtitle">
-            点自选打开 Vault 里的判断：逻辑、证伪、预期跟踪和关联文章。行情只做配角。
-          </p>
-        </div>
-      </header>
-      <WatchlistManager
-        selectedId={selected?.id ?? null}
-        onSelect={(item) => setSelected(item)}
-      />
-      <ResearchCockpit item={selected} />
+    <div className="research-layout">
+      <WatchRail selected={selected} onSelect={setSelected} />
+      <div className="research-main">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Research</p>
+            <h1>个股驾驶舱</h1>
+            <p className="page-subtitle">左边是可收起的股票池；K 线、估值和关联文章都在这页。</p>
+          </div>
+        </header>
+        {selected ? (
+          <ResearchCockpit symbol={selected.symbol} market={selected.market} name={selected.name} />
+        ) : (
+          <section className="card cockpit-empty">
+            <strong>从左边目录点一只股票</strong>
+            <span>添加股票也在目录里。菜单栏和股票池都可以收成图标。</span>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

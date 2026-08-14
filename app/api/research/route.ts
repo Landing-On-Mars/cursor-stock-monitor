@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { MARKETS, type Market } from "@/lib/watchlist-types";
 import {
   cursorPrompt,
-  findPeers,
   findStock,
   getVaultStatus,
   relatedArticles,
@@ -25,7 +24,6 @@ export async function GET(request: NextRequest) {
       vault: status,
       stock: null,
       articles: [],
-      peers: [],
       cursorPrompt: "",
     });
   }
@@ -37,7 +35,6 @@ export async function GET(request: NextRequest) {
       vault: status,
       stock: null,
       articles: [],
-      peers: [],
       cursorPrompt: "",
     });
   }
@@ -47,7 +44,6 @@ export async function GET(request: NextRequest) {
     vault: status,
     stock,
     articles: relatedArticles(symbol, market),
-    peers: findPeers(stock),
     cursorPrompt: cursorPrompt(stock),
   });
 }
