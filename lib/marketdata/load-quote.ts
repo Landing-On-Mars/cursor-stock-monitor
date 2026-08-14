@@ -41,7 +41,7 @@ export async function loadQuote(
     cached != null &&
     isFresh(cached.snapshot) &&
     coversRange(cached.bars, range) &&
-    (cached.snapshot.statsVersion ?? 0) >= 2;
+    (cached.snapshot.statsVersion ?? 0) >= 3;
 
   if (cached && cacheReady) {
     return present(cached.snapshot, cached.bars, range, { fromCache: true, stale: false });

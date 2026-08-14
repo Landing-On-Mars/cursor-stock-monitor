@@ -2,6 +2,7 @@ import "server-only";
 
 import type { QuoteBar, QuoteSnapshot } from "../quote-types";
 import { emptyStats, mergeStats, statsFromQuote, statsFromQuoteSummary } from "./yahoo-fields";
+import { clearYahooSession, getYahooSession, yahooRequestHeaders } from "./yahoo-session";
 
 type YahooChart = {
   chart?: {
@@ -25,11 +26,6 @@ type YahooChart = {
   };
 };
 
-const yahooHeaders = {
-  Accept: "application/json",
-  "User-Agent": "Mozilla/5.0 Northstar/1.0",
-};
-
 export const STORE_RANGE = "2y";
 
 export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapshot> {
@@ -46,9 +42,9 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapsho
   summaryUrl.searchParams.set("modules", "summaryDetail,defaultKeyStatistics,financialData");
 
   const [chartResult, quoteResult, summaryResult] = await Promise.allSettled([
-    fetchJson(chartUrl),
-    fetchJson(quoteUrl),
-    fetchJson(summaryUrl),
+    fetchJson(chartUrl, false),
+    fetchJson(quoteUrl, true),
+    fetchJson(summaryUrl, true),
   ]);
 
   const chart = (settled(chartResult) ?? {}) as YahooChart;
@@ -113,18 +109,38 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapsho
     fiftyTwoWeekLow: quoteRow?.fiftyTwoWeekLow ?? null,
     bars,
     source: "yahoo",
-    statsVersion: 2,
+    statsVersion: 3,
   };
 }
 
-async function fetchJson(url: URL): Promise<unknown> {
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: yahooHeaders,
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!response.ok) throw new Error(`Yahoo returned ${response.status}`);
-  return response.json();
+async function fetchJson(url: URL, auth: boolean): Promise<unknown> {
+  const once = async () => {
+    const session = auth ? await getYahooSession() : null;
+    const target = new URL(url);
+    if (session) target.searchParams.set("crumb", session.crumb);
+    const response = await fetch(target, {
+      cache: "no-store",
+      headers: {
+        ...yahooRequestHeaders(),
+        ...(session ? { Cookie: session.cookie } : {}),
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (response.status === 401) {
+      clearYahooSession();
+      throw new Error(`Yahoo returned ${response.status}`);
+    }
+    if (!response.ok) throw new Error(`Yahoo returned ${response.status}`);
+    return response.json();
+  };
+
+  try {
+    return await once();
+  } catch (error) {
+    if (!auth) throw error;
+    clearYahooSession();
+    return await once();
+  }
 }
 
 function settled(result: PromiseSettledResult<unknown>): unknown | null {

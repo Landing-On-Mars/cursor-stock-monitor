@@ -16,6 +16,8 @@ const ranges = [
   ["1y", "1年"],
 ];
 
+const PLOT = { left: 54, right: 792, top: 16, bottom: 198 };
+
 export function StockChart({ bars, range, onRange }: StockChartProps) {
   const drawing = useMemo(() => buildCandles(bars), [bars]);
 
@@ -34,12 +36,11 @@ export function StockChart({ bars, range, onRange }: StockChartProps) {
         ))}
       </div>
       {drawing ? (
-        <svg className="kline-svg" viewBox="0 0 800 220" role="img" aria-label="日线 K 线">
+        <svg className="kline-svg" viewBox="0 0 800 236" role="img" aria-label="日线 K 线">
           <g className="chart-grid">
-            <line x1="0" y1="20" x2="800" y2="20" />
-            <line x1="0" y1="80" x2="800" y2="80" />
-            <line x1="0" y1="140" x2="800" y2="140" />
-            <line x1="0" y1="200" x2="800" y2="200" />
+            {drawing.yTicks.map((tick) => (
+              <line key={tick.y} x1={PLOT.left} x2={PLOT.right} y1={tick.y} y2={tick.y} />
+            ))}
           </g>
           {drawing.candles.map((candle) => (
             <g key={candle.time}>
@@ -60,6 +61,22 @@ export function StockChart({ bars, range, onRange }: StockChartProps) {
               />
             </g>
           ))}
+          {drawing.yTicks.map((tick) => (
+            <text key={`y-${tick.y}`} className="kline-axis" x={4} y={tick.y + 3}>
+              {tick.label}
+            </text>
+          ))}
+          {drawing.xTicks.map((tick) => (
+            <text
+              key={`x-${tick.x}`}
+              className="kline-axis"
+              textAnchor={tick.anchor}
+              x={tick.x}
+              y={220}
+            >
+              {tick.label}
+            </text>
+          ))}
         </svg>
       ) : (
         <p className="cockpit-empty-inline">没有可用的 K 线数据。</p>
@@ -75,13 +92,16 @@ function buildCandles(bars: QuoteBar[]) {
   const max = Math.max(...highs);
   const min = Math.min(...lows);
   const span = max - min || 1;
-  const width = Math.max(2, Math.min(7, 760 / bars.length - 1.4));
-  const step = 760 / Math.max(bars.length - 1, 1);
+  const plotWidth = PLOT.right - PLOT.left;
+  const plotHeight = PLOT.bottom - PLOT.top;
+  const width = Math.max(2, Math.min(7, plotWidth / bars.length - 1.2));
+  const step = plotWidth / Math.max(bars.length - 1, 1);
+  const project = (value: number) => PLOT.bottom - ((value - min) / span) * plotHeight;
+  const yValues = [max, max - span / 3, min + span / 3, min];
 
   return {
     candles: bars.map((bar, index) => {
-      const x = 20 + index * step;
-      const project = (value: number) => 200 - ((value - min) / span) * 180;
+      const x = PLOT.left + index * step;
       return {
         time: bar.time,
         x,
@@ -93,5 +113,31 @@ function buildCandles(bars: QuoteBar[]) {
         up: bar.close >= bar.open,
       };
     }),
+    yTicks: yValues.map((value) => ({
+      y: project(value),
+      label: formatPrice(value),
+    })),
+    xTicks: [
+      { x: PLOT.left, label: formatDate(bars[0].time), anchor: "start" as const },
+      {
+        x: (PLOT.left + PLOT.right) / 2,
+        label: formatDate(bars[Math.floor(bars.length / 2)].time),
+        anchor: "middle" as const,
+      },
+      { x: PLOT.right, label: formatDate(bars[bars.length - 1].time), anchor: "end" as const },
+    ],
   };
+}
+
+function formatPrice(value: number) {
+  if (value >= 1000) return value.toFixed(0);
+  if (value >= 100) return value.toFixed(1);
+  return value.toFixed(2);
+}
+
+function formatDate(time: number) {
+  const date = new Date(time);
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${month}-${day}`;
 }
