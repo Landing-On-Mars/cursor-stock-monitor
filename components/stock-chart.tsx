@@ -16,7 +16,7 @@ const ranges = [
   ["1y", "1年"],
 ];
 
-const PLOT = { left: 54, right: 792, top: 16, bottom: 198 };
+const PLOT = { left: 8, right: 792, top: 8, bottom: 188 };
 
 export function StockChart({ bars, range, onRange }: StockChartProps) {
   const drawing = useMemo(() => buildCandles(bars), [bars]);
@@ -36,48 +36,46 @@ export function StockChart({ bars, range, onRange }: StockChartProps) {
         ))}
       </div>
       {drawing ? (
-        <svg className="kline-svg" viewBox="0 0 800 236" role="img" aria-label="日线 K 线">
-          <g className="chart-grid">
+        <div className="kline-frame">
+          <div className="kline-y">
             {drawing.yTicks.map((tick) => (
-              <line key={tick.y} x1={PLOT.left} x2={PLOT.right} y1={tick.y} y2={tick.y} />
+              <span key={tick.label}>{tick.label}</span>
             ))}
-          </g>
-          {drawing.candles.map((candle) => (
-            <g key={candle.time}>
-              <line
-                x1={candle.x}
-                x2={candle.x}
-                y1={candle.high}
-                y2={candle.low}
-                stroke={candle.up ? "#c64c4c" : "#235c45"}
-                strokeWidth="1"
-              />
-              <rect
-                x={candle.x - candle.width / 2}
-                y={Math.min(candle.open, candle.close)}
-                width={candle.width}
-                height={Math.max(1.4, Math.abs(candle.close - candle.open))}
-                fill={candle.up ? "#c64c4c" : "#235c45"}
-              />
-            </g>
-          ))}
-          {drawing.yTicks.map((tick) => (
-            <text key={`y-${tick.y}`} className="kline-axis" x={4} y={tick.y + 3}>
-              {tick.label}
-            </text>
-          ))}
-          {drawing.xTicks.map((tick) => (
-            <text
-              key={`x-${tick.x}`}
-              className="kline-axis"
-              textAnchor={tick.anchor}
-              x={tick.x}
-              y={220}
-            >
-              {tick.label}
-            </text>
-          ))}
-        </svg>
+          </div>
+          <div className="kline-plot">
+            <svg className="kline-svg" viewBox="0 0 800 196" role="img" aria-label="日线 K 线">
+              <g className="chart-grid">
+                {drawing.yTicks.map((tick) => (
+                  <line key={tick.y} x1={PLOT.left} x2={PLOT.right} y1={tick.y} y2={tick.y} />
+                ))}
+              </g>
+              {drawing.candles.map((candle) => (
+                <g key={candle.time}>
+                  <line
+                    x1={candle.x}
+                    x2={candle.x}
+                    y1={candle.high}
+                    y2={candle.low}
+                    stroke={candle.up ? "#c64c4c" : "#235c45"}
+                    strokeWidth="1"
+                  />
+                  <rect
+                    x={candle.x - candle.width / 2}
+                    y={Math.min(candle.open, candle.close)}
+                    width={candle.width}
+                    height={Math.max(1.4, Math.abs(candle.close - candle.open))}
+                    fill={candle.up ? "#c64c4c" : "#235c45"}
+                  />
+                </g>
+              ))}
+            </svg>
+            <div className="kline-x">
+              {drawing.xTicks.map((tick) => (
+                <span key={tick.label}>{tick.label}</span>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : (
         <p className="cockpit-empty-inline">没有可用的 K 线数据。</p>
       )}
@@ -113,18 +111,15 @@ function buildCandles(bars: QuoteBar[]) {
         up: bar.close >= bar.open,
       };
     }),
-    yTicks: yValues.map((value) => ({
+    yTicks: yValues.map((value, index) => ({
       y: project(value),
       label: formatPrice(value),
+      key: `${index}-${formatPrice(value)}`,
     })),
     xTicks: [
-      { x: PLOT.left, label: formatDate(bars[0].time), anchor: "start" as const },
-      {
-        x: (PLOT.left + PLOT.right) / 2,
-        label: formatDate(bars[Math.floor(bars.length / 2)].time),
-        anchor: "middle" as const,
-      },
-      { x: PLOT.right, label: formatDate(bars[bars.length - 1].time), anchor: "end" as const },
+      { label: formatDate(bars[0].time) },
+      { label: formatDate(bars[Math.floor(bars.length / 2)].time) },
+      { label: formatDate(bars[bars.length - 1].time) },
     ],
   };
 }

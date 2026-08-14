@@ -68,6 +68,14 @@ export function sliceBars(bars: QuoteBar[], range: string): QuoteBar[] {
   return bars.filter((bar) => bar.time >= start);
 }
 
+export function changeFromBars(bars: QuoteBar[]): number | null {
+  if (bars.length < 2) return null;
+  const last = bars[bars.length - 1].close;
+  const previous = bars[bars.length - 2].close;
+  if (!previous) return null;
+  return ((last - previous) / previous) * 100;
+}
+
 export function coversRange(bars: QuoteBar[], range: string): boolean {
   if (bars.length < 8) return false;
   const span = bars[bars.length - 1].time - bars[0].time;

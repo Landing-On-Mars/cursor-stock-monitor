@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { QuoteBar, QuoteSnapshot } from "../quote-types";
+import { changeFromBars } from "./csv";
 import { emptyStats, mergeStats, statsFromQuote, statsFromQuoteSummary } from "./yahoo-fields";
 import { clearYahooSession, getYahooSession, yahooRequestHeaders } from "./yahoo-session";
 
@@ -80,10 +81,7 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapsho
 
   const quoteRow = firstQuoteRow(quote);
   const price = quoteRow?.regularMarketPrice ?? result?.meta?.regularMarketPrice ?? null;
-  const previous = result?.meta?.chartPreviousClose ?? result?.meta?.previousClose ?? null;
-  const changePercent =
-    quoteRow?.regularMarketChangePercent ??
-    (price != null && previous ? ((price - previous) / previous) * 100 : null);
+  const changePercent = quoteRow?.regularMarketChangePercent ?? changeFromBars(bars);
 
   if (bars.length === 0 && price == null && stats.marketCap == null) {
     throw new Error("行情暂时不可用。");
@@ -109,7 +107,7 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapsho
     fiftyTwoWeekLow: quoteRow?.fiftyTwoWeekLow ?? null,
     bars,
     source: "yahoo",
-    statsVersion: 3,
+    statsVersion: 4,
   };
 }
 
