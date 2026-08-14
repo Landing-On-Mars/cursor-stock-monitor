@@ -4,7 +4,7 @@
   "description": "A stock monitoring tool built for the Cursor AI editor environment.",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
