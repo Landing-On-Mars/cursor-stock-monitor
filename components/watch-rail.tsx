@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import {
   type Market,
   type WatchlistCategory,
@@ -12,6 +12,25 @@ type Props = {
   selected?: { symbol: string; market: string } | null;
   onSelect: (item: { symbol: string; market: string; name: string }) => void;
 };
+
+type GroupState = Record<WatchlistCategory, boolean>;
+
+const defaultGroups: GroupState = { CORE: true, WATCH: true };
+
+function readGroups(): GroupState {
+  if (typeof window === "undefined") return defaultGroups;
+  try {
+    const raw = window.localStorage.getItem("northstar-watch-groups");
+    if (!raw) return defaultGroups;
+    const parsed = JSON.parse(raw) as Partial<GroupState>;
+    return {
+      CORE: parsed.CORE !== false,
+      WATCH: parsed.WATCH !== false,
+    };
+  } catch {
+    return defaultGroups;
+  }
+}
 
 export function WatchRail({ selected, onSelect }: Props) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
@@ -24,6 +43,7 @@ export function WatchRail({ selected, onSelect }: Props) {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("northstar-watch-collapsed") === "1";
   });
+  const [openGroups, setOpenGroups] = useState<GroupState>(readGroups);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
 
@@ -94,6 +114,11 @@ export function WatchRail({ selected, onSelect }: Props) {
     setName("");
     setAdding(false);
     setError("");
+    setOpenGroups((prev) => {
+      const next = { ...prev, [category]: true };
+      window.localStorage.setItem("northstar-watch-groups", JSON.stringify(next));
+      return next;
+    });
     await load();
   }
 
@@ -108,6 +133,14 @@ export function WatchRail({ selected, onSelect }: Props) {
     window.localStorage.setItem("northstar-watch-collapsed", next ? "1" : "0");
   }
 
+  function toggleGroup(group: WatchlistCategory) {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [group]: !prev[group] };
+      window.localStorage.setItem("northstar-watch-groups", JSON.stringify(next));
+      return next;
+    });
+  }
+
   return (
     <aside className={`watch-rail ${collapsed ? "is-collapsed" : ""}`}>
       <div className="watch-rail-head">
@@ -118,7 +151,7 @@ export function WatchRail({ selected, onSelect }: Props) {
           title={collapsed ? "展开股票池" : "收起股票池"}
           onClick={toggleCollapsed}
         >
-          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
         </button>
       </div>
 
@@ -143,34 +176,45 @@ export function WatchRail({ selected, onSelect }: Props) {
         <>
           <input
             className="watch-search"
-            placeholder="搜索代码 / 名称"
+            placeholder="搜索"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
 
           {(["CORE", "WATCH"] as const).map((group) => {
             const rows = filtered.filter((item) => item.category === group);
+            const opened = openGroups[group];
             return (
               <div key={group} className="watch-group">
-                <div className="watch-group-title">{group === "CORE" ? "核心" : "观察"}</div>
-                {rows.length === 0 ? (
-                  <p className="watch-empty">{query ? "没有匹配" : "还没有"}</p>
-                ) : (
-                  rows.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`watch-rail-row ${selected?.symbol === item.symbol && selected.market === item.market ? "is-active" : ""}`}
-                    >
-                      <button type="button" className="watch-rail-main" onClick={() => onSelect(item)}>
-                        <strong>{item.symbol}</strong>
-                        <span>{item.name}</span>
-                      </button>
-                      <button type="button" className="watch-rail-del" onClick={() => remove(item.id)}>
-                        ×
-                      </button>
-                    </div>
-                  ))
-                )}
+                <button
+                  type="button"
+                  className="watch-group-title"
+                  onClick={() => toggleGroup(group)}
+                >
+                  {opened ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  <span>{group === "CORE" ? "核心" : "观察"}</span>
+                  <i>{rows.length}</i>
+                </button>
+                {opened ? (
+                  rows.length === 0 ? (
+                    <p className="watch-empty">{query ? "没有匹配" : "还没有"}</p>
+                  ) : (
+                    rows.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`watch-rail-row ${selected?.symbol === item.symbol && selected.market === item.market ? "is-active" : ""}`}
+                      >
+                        <button type="button" className="watch-rail-main" onClick={() => onSelect(item)}>
+                          <strong>{item.symbol}</strong>
+                          <span>{item.name}</span>
+                        </button>
+                        <button type="button" className="watch-rail-del" onClick={() => remove(item.id)}>
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  )
+                ) : null}
               </div>
             );
           })}
@@ -205,7 +249,7 @@ export function WatchRail({ selected, onSelect }: Props) {
               </>
             ) : (
               <button className="watch-add-toggle" type="button" onClick={() => setAdding(true)}>
-                <Plus size={14} /> 添加股票
+                <Plus size={14} /> 添加
               </button>
             )}
             {error ? <p className="watch-error">{error}</p> : null}
