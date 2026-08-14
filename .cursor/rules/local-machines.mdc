@@ -1,0 +1,12 @@
+---
+description: Local Dashboard and Vault paths on the user's machines
+alwaysApply: true
+---
+
+# 本机路径
+
+- 办公室电脑 Dashboard：`C:\Users\ht.tu\cursor-stock-monitor`
+- 家里电脑 Dashboard：`C:\Users\musk\cursor-stock-monitor`
+- 家里 Vault（Obsidian Journal）：`C:\Users\musk\Documents\Journal`
+
+办公室启动前先 `cd C:\Users\ht.tu\cursor-stock-monitor`，不要在 `H:\` 根目录跑 npm / npx。

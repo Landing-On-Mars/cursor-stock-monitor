@@ -16,6 +16,19 @@ Vault 默认目录是与本项目同级的 `investment-vault`。也可以在 `.e
 VAULT_PATH=C:\Users\musk\Documents\Journal
 ```
 
+## 本机路径
+
+| 机器 | Dashboard |
+| --- | --- |
+| 办公室 | `C:\Users\ht.tu\cursor-stock-monitor` |
+| 家里 | `C:\Users\musk\cursor-stock-monitor` |
+
+办公室先进入项目再装依赖、启动：
+
+```powershell
+cd C:\Users\ht.tu\cursor-stock-monitor
+```
+
 ## Getting Started
 
 ```bash
