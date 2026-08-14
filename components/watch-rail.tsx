@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import {
   CATEGORY_LABEL,
@@ -37,8 +38,14 @@ function readGroups(): GroupState {
   }
 }
 
+type VaultStatus = {
+  ok: boolean;
+  stockCount: number;
+};
+
 export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
+  const [vault, setVault] = useState<VaultStatus | null>(null);
   const [query, setQuery] = useState("");
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
@@ -70,10 +77,17 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/watchlist")
-      .then((res) => res.json() as Promise<WatchlistItem[] | { error?: string }>)
-      .then((json) => {
+    Promise.all([
+      fetch("/api/watchlist", { cache: "no-store" }).then(
+        (res) => res.json() as Promise<WatchlistItem[] | { error?: string }>,
+      ),
+      fetch("/api/vault/status", { cache: "no-store" })
+        .then((res) => res.json() as Promise<VaultStatus>)
+        .catch(() => null),
+    ])
+      .then(([json, status]) => {
         if (!active) return;
+        if (status) setVault(status);
         if (Array.isArray(json)) {
           setItems(json);
           setError("");
@@ -144,7 +158,12 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
   return (
     <aside className={`watch-rail ${collapsed ? "is-collapsed" : ""}`}>
       <div className="watch-rail-head">
-        {!collapsed ? <h3>股票池</h3> : null}
+        {!collapsed ? (
+          <h3>
+            股票池
+            {items.length > 0 ? <i>{items.length}</i> : null}
+          </h3>
+        ) : null}
         <button
           className="icon-btn"
           type="button"
@@ -157,7 +176,7 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
 
       {collapsed ? (
         <div className="watch-rail-icons">
-          {items.slice(0, 18).map((item) => (
+          {items.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -183,6 +202,7 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
 
           {WATCHLIST_CATEGORIES.map((group) => {
             const rows = filtered.filter((item) => item.category === group);
+            if (rows.length === 0) return null;
             const opened = openGroups[group];
             return (
               <div key={group} className="watch-group">
@@ -191,7 +211,7 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
                   className="watch-group-title"
                   onClick={() => toggleGroup(group)}
                 >
-                  {opened ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  {opened ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                   <span>{CATEGORY_LABEL[group]}</span>
                   <i>{rows.length}</i>
                 </button>
@@ -201,6 +221,7 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
                         key={item.id}
                         type="button"
                         className={`watch-rail-row ${selected?.symbol === item.symbol && selected.market === item.market ? "is-active" : ""}`}
+                        title={`${item.symbol} ${item.name}`}
                         onClick={() => onSelect(item)}
                       >
                         <strong>{item.symbol}</strong>
@@ -251,6 +272,14 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
               </button>
             )}
             {error ? <p className="watch-error">{error}</p> : null}
+            {vault && !vault.ok ? (
+              <p className="watch-rail-hint">
+                <Link href="/settings">设置 Vault</Link>
+                后会从 Stocks 导入
+              </p>
+            ) : vault && vault.stockCount > items.length + 3 ? (
+              <p className="watch-rail-hint">Vault 有 {vault.stockCount} 只，刷新后再看</p>
+            ) : null}
           </div>
         </>
       )}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeFolderPath, writeLocalConfig } from "@/lib/local-config";
 import { vaultRootError } from "@/lib/vault/path";
 import { getVaultStatus, resetVaultCache } from "@/lib/vault/repository";
+import { syncWatchlistFromVault } from "@/lib/watchlist-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -25,5 +26,6 @@ export async function POST(request: Request) {
 
   writeLocalConfig({ vaultPath: vaultPath || undefined });
   resetVaultCache();
+  syncWatchlistFromVault();
   return NextResponse.json(getVaultStatus());
 }

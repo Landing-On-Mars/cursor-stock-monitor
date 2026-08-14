@@ -55,6 +55,13 @@ export function getVaultStatus(): VaultStatus {
   };
 }
 
+export function listStocks(): StockCockpit[] {
+  const root = resolveVaultPath();
+  if (!root) return [];
+  loadIndexes(root);
+  return [...(stockIndex?.values() ?? [])].map((record) => record.cockpit);
+}
+
 export function findStock(symbol: string, market: string): StockCockpit | null {
   const root = resolveVaultPath();
   if (!root) return null;
@@ -134,16 +141,24 @@ function loadIndexes(root: string) {
   articleIndex = [];
 
   for (const relativePath of listMarkdown(path.join(root, "Stocks"), "Stocks")) {
-    const raw = fs.readFileSync(path.join(root, relativePath), "utf8");
-    const cockpit = parseStockMarkdown(relativePath, raw);
-    if (!cockpit.symbol) continue;
-    stockIndex.set(symbolKey(cockpit.symbol, cockpit.market), { relativePath, cockpit });
+    try {
+      const raw = fs.readFileSync(path.join(root, relativePath), "utf8");
+      const cockpit = parseStockMarkdown(relativePath, raw);
+      if (!cockpit.symbol) continue;
+      stockIndex.set(symbolKey(cockpit.symbol, cockpit.market), { relativePath, cockpit });
+    } catch (error) {
+      console.error(`Skip stock file ${relativePath}:`, error);
+    }
   }
 
   for (const relativePath of listMarkdown(path.join(root, "Articles"), "Articles")) {
     if (relativePath.split(/[\\/]/).includes("attachments")) continue;
-    const raw = fs.readFileSync(path.join(root, relativePath), "utf8");
-    articleIndex.push(parseArticleMarkdown(relativePath, raw));
+    try {
+      const raw = fs.readFileSync(path.join(root, relativePath), "utf8");
+      articleIndex.push(parseArticleMarkdown(relativePath, raw));
+    } catch (error) {
+      console.error(`Skip article file ${relativePath}:`, error);
+    }
   }
 }
 

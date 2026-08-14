@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isUniqueConstraintError } from "@/lib/sqlite";
+import { canonicalSymbol } from "@/lib/vault/symbols";
+import { syncWatchlistFromVault } from "@/lib/watchlist-sync";
 import {
   MARKETS,
   WATCHLIST_CATEGORIES,
@@ -35,15 +37,26 @@ function toWatchlistItem(row: WatchlistRow): WatchlistItem {
 }
 
 export async function GET() {
-  const rows = db
-    .prepare(
-      `SELECT id, symbol, name, market, category, note, created_at
-       FROM watchlist_items
-       ORDER BY category ASC, created_at ASC`,
-    )
-    .all() as WatchlistRow[];
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return NextResponse.json([]);
+  }
 
-  return NextResponse.json(rows.map(toWatchlistItem));
+  try {
+    syncWatchlistFromVault();
+    const rows = db
+      .prepare(
+        `SELECT id, symbol, name, market, category, note, created_at
+         FROM watchlist_items
+         ORDER BY
+           CASE category WHEN 'CORE' THEN 0 WHEN 'WATCH' THEN 1 ELSE 2 END,
+           symbol COLLATE NOCASE ASC`,
+      )
+      .all() as WatchlistRow[];
+    return NextResponse.json(rows.map(toWatchlistItem));
+  } catch (error) {
+    console.error("Watchlist GET failed:", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {
@@ -55,9 +68,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请求内容不是有效的 JSON。" }, { status: 400 });
   }
 
-  const symbol = body.symbol?.trim().toUpperCase();
+  const rawSymbol = body.symbol?.trim().toUpperCase();
   const name = body.name?.trim();
   const note = body.note?.trim() ?? "";
+  const symbol =
+    rawSymbol && body.market ? canonicalSymbol(rawSymbol, body.market) : rawSymbol;
 
   if (!symbol || !name) {
     return NextResponse.json({ error: "股票代码和名称不能为空。" }, { status: 400 });
@@ -78,6 +93,11 @@ export async function POST(request: Request) {
          VALUES (?, ?, ?, ?, ?)`,
       )
       .run(symbol, name, body.market, body.category, note);
+
+    db.prepare("DELETE FROM watchlist_dismissed WHERE symbol = ? AND market = ?").run(
+      symbol,
+      body.market,
+    );
 
     const row = db
       .prepare(

@@ -4,10 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { SqliteDatabase } from "@/lib/sqlite";
 
-const databasePath =
-  process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "dashboard.db");
+const isProductionBuild = process.env.NEXT_PHASE === "phase-production-build";
 
-fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+const databasePath = isProductionBuild
+  ? ":memory:"
+  : (process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "dashboard.db"));
+
+if (databasePath !== ":memory:") {
+  fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+}
 
 function migrateWatchlistConstraints(database: SqliteDatabase) {
   database.exec("BEGIN IMMEDIATE");
@@ -79,6 +84,12 @@ function createDatabase() {
       noted_at TEXT NOT NULL,
       body TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS watchlist_dismissed (
+      symbol TEXT NOT NULL COLLATE NOCASE,
+      market TEXT NOT NULL,
+      PRIMARY KEY (symbol, market)
     );
 
     CREATE TABLE IF NOT EXISTS app_meta (

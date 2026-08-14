@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "tsx --test lib/vault/*.test.ts"
+    "test": "tsx --test lib/*.test.ts lib/vault/*.test.ts"
   },
   "repository": {
     "type": "git",

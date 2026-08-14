@@ -49,11 +49,17 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "自选股 ID 无效。" }, { status: 400 });
   }
 
-  const result = db.prepare("DELETE FROM watchlist_items WHERE id = ?").run(id);
-
-  if (result.changes === 0) {
+  const row = db
+    .prepare("SELECT symbol, market FROM watchlist_items WHERE id = ?")
+    .get(id) as { symbol: string; market: string } | undefined;
+  if (!row) {
     return NextResponse.json({ error: "没有找到该自选股。" }, { status: 404 });
   }
+
+  db.prepare(
+    "INSERT OR IGNORE INTO watchlist_dismissed (symbol, market) VALUES (?, ?)",
+  ).run(row.symbol, row.market);
+  db.prepare("DELETE FROM watchlist_items WHERE id = ?").run(id);
 
   return new Response(null, { status: 204 });
 }
