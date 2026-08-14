@@ -529,6 +529,11 @@ code { font-size: 11px; }
 
 .research-layout { display: flex; min-height: 100vh; }
 .research-main { flex: 1; min-width: 0; padding: 0 28px 48px; }
+.research-main .page-header { padding: 18px 0 14px; }
+.research-main .eyebrow { font-size: 10px; margin-bottom: 3px; }
+.research-main h1 { font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
+.research-main .header-actions { gap: 7px; }
+.research-main .header-actions .btn { font-size: 11px; gap: 5px; padding: 6px 10px; }
 .cockpit-stack { display: grid; gap: 14px; }
 .cockpit-split {
   align-items: stretch;
@@ -686,19 +691,19 @@ code { font-size: 11px; }
   align-items: center;
   display: flex;
   justify-content: space-between;
-  min-height: 22px;
+  min-height: 24px;
 }
 .watch-rail-head h3 {
   align-items: baseline;
   display: flex;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 650;
   gap: 5px;
   margin: 0;
 }
 .watch-rail-head h3 i {
   color: #a3aaa6;
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 500;
 }
@@ -730,14 +735,14 @@ code { font-size: 11px; }
   background: none;
   border: 0;
   border-radius: 4px;
-  color: #8a918c;
+  color: #7d847f;
   cursor: pointer;
   display: flex;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 650;
-  gap: 2px;
-  letter-spacing: 0.04em;
-  padding: 4px 3px 2px;
+  gap: 3px;
+  letter-spacing: 0.02em;
+  padding: 5px 3px 3px;
   text-align: left;
   width: 100%;
 }
@@ -745,7 +750,7 @@ code { font-size: 11px; }
 .watch-group-title span { flex: 1; }
 .watch-group-title i {
   color: #b0b6b1;
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 500;
 }
@@ -768,7 +773,7 @@ code { font-size: 11px; }
 .watch-rail-row strong {
   color: #2c332f;
   flex: 0 0 auto;
-  font-size: 10px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -780,7 +785,7 @@ code { font-size: 11px; }
 .watch-rail-row span {
   color: #8d948f;
   flex: 1;
-  font-size: 9px;
+  font-size: 10px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

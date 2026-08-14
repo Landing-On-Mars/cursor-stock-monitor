@@ -211,15 +211,15 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           <div className="card-head focus-head">
             <h2>现在该看什么</h2>
             <div className="focus-actions">
-              <button className="btn btn-primary" type="button" onClick={addNote}>
-                记下
-              </button>
               <input
                 className="focus-date"
                 type="date"
                 value={noteDate}
                 onChange={(event) => setNoteDate(event.target.value)}
               />
+              <button className="btn btn-primary" type="button" onClick={addNote}>
+                记下
+              </button>
             </div>
           </div>
           <div className="focus-panel">
