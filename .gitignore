@@ -14,6 +14,7 @@ venv/
 data/*.db
 data/*.db-*
 data/local-config.json
+data/marketdata/
 
 # Build output
 .next/

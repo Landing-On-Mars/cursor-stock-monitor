@@ -81,7 +81,7 @@ export default function SettingsPage() {
         <div className="card-head" style={{ padding: 0, border: 0, marginBottom: 16 }}>
           <div>
             <h2>Obsidian Vault</h2>
-            <p>选含有 Stocks 和 Articles 的根目录。保存后会把 Stocks 里的个股导入股票池。每台电脑各自记住，互不影响。</p>
+            <p>选含有 Stocks 和 Articles 的根目录。保存后会把 Stocks 里的个股导入股票池。K 线缓存在 Vault/MarketData，随 Google Drive 同步。每台电脑各自记住路径。</p>
           </div>
           <span className="icon-box"><FolderOpen size={15} /></span>
         </div>

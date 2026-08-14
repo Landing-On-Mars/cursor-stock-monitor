@@ -168,6 +168,9 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
             <h2>
               {displayName} <span>{symbol}</span>
             </h2>
+            {quote?.asOf ? (
+              <span className="quote-asof">{quote.stale ? `缓存 ${quote.asOf}` : quote.asOf}</span>
+            ) : null}
           </div>
           <div className="quote-grid">
             <div>
@@ -249,6 +252,7 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
       <section className="card">
         <div className="card-head">
           <h2>K 线</h2>
+          {quote?.fromCache ? <span className="quote-asof">本地</span> : null}
         </div>
         <div className="cockpit-pad">
           <StockChart bars={quote?.bars ?? []} range={range} onRange={setRange} />

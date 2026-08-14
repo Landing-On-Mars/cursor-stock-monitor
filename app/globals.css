@@ -568,6 +568,13 @@ code { font-size: 11px; }
   line-height: 24px;
   margin-left: 0;
 }
+.quote-asof {
+  color: #9aa39c;
+  font-size: 10px;
+  font-weight: 500;
+  margin-left: auto;
+  white-space: nowrap;
+}
 .focus-head { gap: 10px; }
 .focus-actions { align-items: center; display: flex; gap: 8px; margin-left: auto; }
 .focus-head .btn {

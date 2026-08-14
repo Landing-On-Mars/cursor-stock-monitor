@@ -20,5 +20,10 @@ export type QuoteSnapshot = {
   fiftyTwoWeekHigh: number | null;
   fiftyTwoWeekLow: number | null;
   bars: QuoteBar[];
+  fetchedAt?: number;
+  source?: string;
+  asOf?: string;
+  stale?: boolean;
+  fromCache?: boolean;
   error?: string;
 };
