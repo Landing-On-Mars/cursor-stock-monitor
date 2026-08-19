@@ -57,6 +57,106 @@ function renderInline(text: string): ReactNode[] {
   return nodes;
 }
 
+function Heading({ level, text }: { level: number; text: string }) {
+  if (level === 1) {
+    return <h3 className="article-h1">{renderInline(text)}</h3>;
+  }
+  if (level === 2) {
+    return <h4 className="article-h2">{renderInline(text)}</h4>;
+  }
+  return <h5 className="article-h3">{renderInline(text)}</h5>;
+}
+
+function MarkdownList({
+  ordered,
+  lines,
+  id,
+}: {
+  ordered: boolean;
+  lines: string[];
+  id: string;
+}) {
+  const Tag = ordered ? "ol" : "ul";
+  const strip = ordered ? /^\d+\.\s+/ : /^[-*]\s+/;
+  return (
+    <Tag className="article-md-list">
+      {lines.map((line, lineIndex) => (
+        <li key={`${id}-${lineIndex}`}>{renderInline(line.replace(strip, ""))}</li>
+      ))}
+    </Tag>
+  );
+}
+
+function renderBlock(trimmed: string, id: string): ReactNode {
+  if (/^---+$/.test(trimmed)) {
+    return <hr className="article-hr" key={id} />;
+  }
+
+  const lines = trimmed.split("\n");
+  const heading = lines[0]?.match(/^(#{1,3})\s+(.+)$/);
+  if (heading) {
+    const title = heading[2].trim();
+    const rest = lines.slice(1).join("\n").trim();
+    if (!rest) {
+      return <Heading key={id} level={heading[1].length} text={title} />;
+    }
+    return (
+      <div className="article-block" key={id}>
+        <Heading level={heading[1].length} text={title} />
+        {renderBlock(rest, `${id}-rest`)}
+      </div>
+    );
+  }
+
+  const nonempty = lines.filter((line) => line.trim());
+  if (nonempty.length >= 2) {
+    const rest = nonempty.slice(1);
+    if (rest.every((line) => /^[-*]\s+/.test(line))) {
+      return (
+        <div className="article-block" key={id}>
+          <p className="article-paragraph">{renderInline(nonempty[0])}</p>
+          <MarkdownList id={`${id}-ul`} lines={rest} ordered={false} />
+        </div>
+      );
+    }
+    if (rest.every((line) => /^\d+\.\s+/.test(line))) {
+      return (
+        <div className="article-block" key={id}>
+          <p className="article-paragraph">{renderInline(nonempty[0])}</p>
+          <MarkdownList id={`${id}-ol`} lines={rest} ordered />
+        </div>
+      );
+    }
+  }
+
+  if (lines.every((line) => /^>\s?/.test(line) || !line.trim())) {
+    const quote = lines.map((line) => line.replace(/^>\s?/, "")).join("\n");
+    return (
+      <blockquote className="article-quote" key={id}>
+        {renderInline(quote)}
+      </blockquote>
+    );
+  }
+
+  if (nonempty.length > 0 && nonempty.every((line) => /^[-*]\s+/.test(line))) {
+    return <MarkdownList id={id} key={id} lines={nonempty} ordered={false} />;
+  }
+  if (nonempty.length > 0 && nonempty.every((line) => /^\d+\.\s+/.test(line))) {
+    return <MarkdownList id={id} key={id} lines={nonempty} ordered />;
+  }
+
+  return (
+    <p className="article-paragraph" key={id}>
+      {lines.map((line, lineIndex) => (
+        <span key={`${id}-${lineIndex}`}>
+          {renderInline(line)}
+          {lineIndex < lines.length - 1 ? <br /> : null}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 export function ArticleMarkdown({ value }: { value: string }) {
   const blocks = value.replace(/\r\n/g, "\n").split(/\n{2,}/);
 
@@ -65,77 +165,7 @@ export function ArticleMarkdown({ value }: { value: string }) {
       {blocks.map((block, index) => {
         const trimmed = block.trim();
         if (!trimmed) return null;
-
-        if (/^---+$/.test(trimmed)) {
-          return <hr className="article-hr" key={`hr-${index}`} />;
-        }
-
-        const heading = trimmed.match(/^(#{1,3})\s+([\s\S]+)$/);
-        if (heading) {
-          const level = heading[1].length;
-          const text = heading[2].replace(/\n/g, " ");
-          if (level === 1) {
-            return (
-              <h3 className="article-h1" key={`h-${index}`}>
-                {renderInline(text)}
-              </h3>
-            );
-          }
-          if (level === 2) {
-            return (
-              <h4 className="article-h2" key={`h-${index}`}>
-                {renderInline(text)}
-              </h4>
-            );
-          }
-          return (
-            <h5 className="article-h3" key={`h-${index}`}>
-              {renderInline(text)}
-            </h5>
-          );
-        }
-
-        const quoteLines = trimmed.split("\n");
-        if (quoteLines.every((line) => /^>\s?/.test(line) || !line.trim())) {
-          const quote = quoteLines.map((line) => line.replace(/^>\s?/, "")).join("\n");
-          return (
-            <blockquote className="article-quote" key={`q-${index}`}>
-              {renderInline(quote)}
-            </blockquote>
-          );
-        }
-
-        const listLines = trimmed.split("\n").filter((line) => line.trim());
-        if (listLines.length > 0 && listLines.every((line) => /^[-*]\s+/.test(line))) {
-          return (
-            <ul className="article-md-list" key={`ul-${index}`}>
-              {listLines.map((line, lineIndex) => (
-                <li key={`li-${index}-${lineIndex}`}>{renderInline(line.replace(/^[-*]\s+/, ""))}</li>
-              ))}
-            </ul>
-          );
-        }
-
-        if (listLines.length > 0 && listLines.every((line) => /^\d+\.\s+/.test(line))) {
-          return (
-            <ol className="article-md-list" key={`ol-${index}`}>
-              {listLines.map((line, lineIndex) => (
-                <li key={`li-${index}-${lineIndex}`}>{renderInline(line.replace(/^\d+\.\s+/, ""))}</li>
-              ))}
-            </ol>
-          );
-        }
-
-        return (
-          <p className="article-paragraph" key={`p-${index}`}>
-            {trimmed.split("\n").map((line, lineIndex, lines) => (
-              <span key={`l-${index}-${lineIndex}`}>
-                {renderInline(line)}
-                {lineIndex < lines.length - 1 ? <br /> : null}
-              </span>
-            ))}
-          </p>
-        );
+        return renderBlock(trimmed, `b-${index}`);
       })}
     </>
   );

@@ -9,6 +9,7 @@ import { barsToCsv, csvToBars } from "./csv";
 export type CachedQuote = {
   snapshot: QuoteSnapshot;
   bars: QuoteBar[];
+  monthlyBars: QuoteBar[];
 };
 
 type SnapshotFile = Omit<QuoteSnapshot, "bars"> & {
@@ -38,6 +39,7 @@ function paths(symbol: string, market: string) {
   return {
     dir: root,
     csv: path.join(/* turbopackIgnore: true */ root, "kline.csv"),
+    monthlyCsv: path.join(/* turbopackIgnore: true */ root, "kline-1mo.csv"),
     snapshot: path.join(/* turbopackIgnore: true */ root, "snapshot.json"),
   };
 }
@@ -52,6 +54,7 @@ export function readCachedQuote(symbol: string, market: string): CachedQuote | n
   }
 
   let bars: QuoteBar[] = [];
+  let monthlyBars: QuoteBar[] = [];
   let snapshot = emptyMeta(symbol);
 
   try {
@@ -60,6 +63,14 @@ export function readCachedQuote(symbol: string, market: string): CachedQuote | n
     }
   } catch (error) {
     console.error("Read kline cache failed:", error);
+  }
+
+  try {
+    if (fs.existsSync(/* turbopackIgnore: true */ file.monthlyCsv)) {
+      monthlyBars = csvToBars(fs.readFileSync(/* turbopackIgnore: true */ file.monthlyCsv, "utf8"));
+    }
+  } catch (error) {
+    console.error("Read monthly kline cache failed:", error);
   }
 
   try {
@@ -74,7 +85,7 @@ export function readCachedQuote(symbol: string, market: string): CachedQuote | n
   }
 
   if (bars.length === 0 && snapshot.price == null && !snapshot.fetchedAt) return null;
-  return { snapshot, bars };
+  return { snapshot, bars, monthlyBars };
 }
 
 export function writeCachedQuote(symbol: string, market: string, cached: CachedQuote) {
@@ -83,6 +94,9 @@ export function writeCachedQuote(symbol: string, market: string, cached: CachedQ
   const file = paths(symbol, market);
   fs.mkdirSync(/* turbopackIgnore: true */ file.dir, { recursive: true });
   writeAtomic(file.csv, barsToCsv(cached.bars));
+  if (cached.monthlyBars.length > 0) {
+    writeAtomic(file.monthlyCsv, barsToCsv(cached.monthlyBars));
+  }
   const { bars, ...meta } = cached.snapshot;
   void bars;
   const payload: SnapshotFile = {

@@ -3,11 +3,11 @@ import "server-only";
 import { toYahooSymbol } from "../vault/symbols";
 import type { QuoteSnapshot } from "../quote-types";
 import { STATS_VERSION, quoteCacheReady, resolveChangePercent } from "./cache-policy";
-import { changeFromBars, coversRange, dateKey, mergeBars, sliceBars } from "./csv";
+import { chartBars, changeFromBars, dateKey, klineCacheCovers, mergeBars } from "./csv";
 import { emptyEastmoney, fetchEastmoneyQuote } from "./eastmoney";
 import { fetchEastmoneyFundamentals } from "./eastmoney-f10";
 import { readCachedQuote, writeCachedQuote } from "./store";
-import { fetchYahooQuote } from "./yahoo";
+import { fetchYahooBars, fetchYahooQuote, MONTHLY_RANGE } from "./yahoo";
 import { emptyStats, mergeStats, type YahooStats } from "./yahoo-fields";
 
 export function emptySnapshot(yahooSymbol: string, error: string): QuoteSnapshot {
@@ -43,14 +43,16 @@ export async function loadQuote(
   const yahooSymbol = toYahooSymbol(symbol, market);
   const cached = readCachedQuote(symbol, market);
   const cacheReady =
-    !options?.force && quoteCacheReady(cached?.snapshot, coversRange(cached?.bars ?? [], range));
+    !options?.force &&
+    quoteCacheReady(cached?.snapshot, klineCacheCovers(cached?.bars ?? [], cached?.monthlyBars ?? [], range));
 
   if (cached && cacheReady) {
-    return present(cached.snapshot, cached.bars, range, { fromCache: true, stale: false });
+    return present(cached.snapshot, cached.bars, cached.monthlyBars, range, { fromCache: true, stale: false });
   }
 
-  const [yahooResult, eastmoneyResult, f10Result] = await Promise.allSettled([
+  const [yahooResult, monthlyResult, eastmoneyResult, f10Result] = await Promise.allSettled([
     fetchYahooQuote(yahooSymbol),
+    fetchYahooBars(yahooSymbol, "1mo", MONTHLY_RANGE),
     market === "OTHER"
       ? Promise.resolve(emptyEastmoney())
       : fetchEastmoneyQuote(symbol, market),
@@ -59,6 +61,7 @@ export async function loadQuote(
       : Promise.resolve(emptyStats()),
   ]);
   const yahoo = yahooResult.status === "fulfilled" ? yahooResult.value : null;
+  const monthlyLive = monthlyResult.status === "fulfilled" ? monthlyResult.value : [];
   const eastmoney = eastmoneyResult.status === "fulfilled" ? eastmoneyResult.value : emptyEastmoney();
   const f10 = f10Result.status === "fulfilled" ? f10Result.value : emptyStats();
 
@@ -66,6 +69,9 @@ export async function loadQuote(
   if (yahooResult.status === "rejected") {
     console.error("Yahoo quote failed:", yahooResult.reason);
     fetchErrors.push(`Yahoo：${errorMessage(yahooResult.reason)}`);
+  }
+  if (monthlyResult.status === "rejected") {
+    console.error("Yahoo monthly bars failed:", monthlyResult.reason);
   }
   if (eastmoneyResult.status === "rejected") {
     console.error("Eastmoney quote failed:", eastmoneyResult.reason);
@@ -76,6 +82,7 @@ export async function loadQuote(
   }
 
   const bars = mergeBars(cached?.bars ?? [], yahoo?.bars ?? []);
+  const monthlyBars = mergeBars(cached?.monthlyBars ?? [], monthlyLive);
   const yahooStats = snapshotStats(yahoo);
   const live = liveQuoteStats(eastmoney);
   const stats =
@@ -85,7 +92,7 @@ export async function loadQuote(
 
   if (bars.length === 0 && stats.marketCap == null && (yahoo?.price ?? eastmoney.price) == null) {
     if (cached && (cached.bars.length > 0 || cached.snapshot.price != null)) {
-      return present(cached.snapshot, cached.bars, range, {
+      return present(cached.snapshot, cached.bars, cached.monthlyBars, range, {
         fromCache: true,
         stale: true,
         error: fetchErrors.length ? fetchErrors.join("；") : "行情暂时不可用，已用本地缓存。",
@@ -119,8 +126,8 @@ export async function loadQuote(
     statsVersion: STATS_VERSION,
     error: stats.marketCap == null && fetchErrors.length ? fetchErrors.join("；") : undefined,
   };
-  writeCachedQuote(symbol, market, { snapshot, bars });
-  return present(snapshot, bars, range, { fromCache: false, stale: false });
+  writeCachedQuote(symbol, market, { snapshot, bars, monthlyBars });
+  return present(snapshot, bars, monthlyBars, range, { fromCache: false, stale: false });
 }
 
 function liveQuoteStats(quote: YahooStats): YahooStats {
@@ -164,12 +171,13 @@ function snapshotStats(snapshot: QuoteSnapshot | null): YahooStats {
 function present(
   snapshot: QuoteSnapshot,
   bars: QuoteBarLike[],
+  monthlyBars: QuoteBarLike[],
   range: string,
   flags: { fromCache: boolean; stale: boolean; error?: string },
 ): QuoteSnapshot {
-  const sliced = sliceBars(bars, range);
+  const sliced = chartBars(bars, monthlyBars, range);
   const last = sliced[sliced.length - 1] ?? bars[bars.length - 1];
-  const dailyChange = changeFromBars(sliced.length >= 2 ? sliced : bars);
+  const dailyChange = changeFromBars(bars);
   const changePercent = resolveChangePercent(snapshot.changePercent, dailyChange, snapshot.statsVersion);
   return {
     ...snapshot,

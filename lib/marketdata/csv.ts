@@ -1,11 +1,22 @@
 import type { QuoteBar } from "../quote-types";
 
+export const CHART_RANGES = ["daily", "monthly", "yearly"] as const;
+export type ChartRange = (typeof CHART_RANGES)[number];
+
 export const RANGE_MS: Record<string, number> = {
   "1mo": 31 * 86_400_000,
   "3mo": 93 * 86_400_000,
   "6mo": 186 * 86_400_000,
   "1y": 370 * 86_400_000,
   "2y": 740 * 86_400_000,
+  "10y": 3650 * 86_400_000,
+  "15y": 5475 * 86_400_000,
+};
+
+const CHART_SLICE: Record<ChartRange, string> = {
+  daily: "1y",
+  monthly: "10y",
+  yearly: "15y",
 };
 
 export function dateKey(time: number): string {
@@ -81,6 +92,47 @@ export function coversRange(bars: QuoteBar[], range: string): boolean {
   const span = bars[bars.length - 1].time - bars[0].time;
   const needed = RANGE_MS[range] ?? RANGE_MS["6mo"];
   return span >= needed * 0.85;
+}
+
+export function isChartRange(value: string): value is ChartRange {
+  return (CHART_RANGES as readonly string[]).includes(value);
+}
+
+export function resampleBars(bars: QuoteBar[], period: "month" | "year"): QuoteBar[] {
+  const groups = new Map<string, QuoteBar[]>();
+  for (const bar of bars) {
+    const key = period === "year" ? String(new Date(bar.time).getUTCFullYear()) : dateKey(bar.time).slice(0, 7);
+    const list = groups.get(key);
+    if (list) list.push(bar);
+    else groups.set(key, [bar]);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, list]) => ({
+      time: list[0].time,
+      open: list[0].open,
+      high: Math.max(...list.map((bar) => bar.high)),
+      low: Math.min(...list.map((bar) => bar.low)),
+      close: list[list.length - 1].close,
+    }));
+}
+
+export function chartBars(daily: QuoteBar[], monthly: QuoteBar[], range: string): QuoteBar[] {
+  const mode: ChartRange = isChartRange(range) ? range : "daily";
+  if (mode === "monthly") {
+    const source = monthly.length >= 8 ? monthly : resampleBars(daily, "month");
+    return sliceBars(source, CHART_SLICE.monthly);
+  }
+  if (mode === "yearly") {
+    const source = monthly.length >= 8 ? monthly : resampleBars(daily, "month");
+    return sliceBars(resampleBars(source, "year"), CHART_SLICE.yearly);
+  }
+  return sliceBars(daily, CHART_SLICE.daily);
+}
+
+export function klineCacheCovers(daily: QuoteBar[], monthly: QuoteBar[], range: string): boolean {
+  if (range === "monthly" || range === "yearly") return monthly.length >= 8;
+  return coversRange(daily, CHART_SLICE.daily);
 }
 
 function num(value: number): string {

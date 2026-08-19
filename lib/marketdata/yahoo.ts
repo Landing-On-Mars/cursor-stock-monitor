@@ -29,6 +29,18 @@ type YahooChart = {
 };
 
 export const STORE_RANGE = "2y";
+export const MONTHLY_RANGE = "max";
+
+export async function fetchYahooBars(
+  yahooSymbol: string,
+  interval: "1d" | "1mo",
+  range: string,
+): Promise<QuoteBar[]> {
+  const chartUrl = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}`);
+  chartUrl.searchParams.set("interval", interval);
+  chartUrl.searchParams.set("range", range);
+  return barsFromChart((await fetchJson(chartUrl, false)) as YahooChart);
+}
 
 export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapshot> {
   const chartUrl = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}`);
@@ -62,18 +74,7 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapsho
   }
 
   const result = chart.chart?.result?.[0];
-  const series = result?.indicators?.quote?.[0];
-  const times = result?.timestamp ?? [];
-  const bars: QuoteBar[] = [];
-
-  for (let index = 0; index < times.length; index += 1) {
-    const open = series?.open?.[index];
-    const high = series?.high?.[index];
-    const low = series?.low?.[index];
-    const close = series?.close?.[index];
-    if (open == null || high == null || low == null || close == null) continue;
-    bars.push({ time: times[index] * 1000, open, high, low, close });
-  }
+  const bars = barsFromChart(chart);
 
   const stats = mergeStats(
     summary ? statsFromQuoteSummary(summary) : emptyStats(),
@@ -140,6 +141,22 @@ async function fetchJson(url: URL, auth: boolean): Promise<unknown> {
     clearYahooSession();
     return await once();
   }
+}
+
+function barsFromChart(chart: YahooChart): QuoteBar[] {
+  const result = chart.chart?.result?.[0];
+  const series = result?.indicators?.quote?.[0];
+  const times = result?.timestamp ?? [];
+  const bars: QuoteBar[] = [];
+  for (let index = 0; index < times.length; index += 1) {
+    const open = series?.open?.[index];
+    const high = series?.high?.[index];
+    const low = series?.low?.[index];
+    const close = series?.close?.[index];
+    if (open == null || high == null || low == null || close == null) continue;
+    bars.push({ time: times[index] * 1000, open, high, low, close });
+  }
+  return bars;
 }
 
 function settled(result: PromiseSettledResult<unknown>): unknown | null {

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   const symbol = request.nextUrl.searchParams.get("symbol")?.trim();
   const market = request.nextUrl.searchParams.get("market")?.trim().toUpperCase();
-  const range = request.nextUrl.searchParams.get("range")?.trim() || "6mo";
+  const range = request.nextUrl.searchParams.get("range")?.trim() || "daily";
   const force = request.nextUrl.searchParams.get("force") === "1";
 
   if (!symbol || !market || !MARKETS.includes(market as Market)) {

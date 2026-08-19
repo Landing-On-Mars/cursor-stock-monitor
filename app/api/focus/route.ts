@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "保存观察失败。";
+    const message = error instanceof Error ? error.message : "保存日志失败。";
     const status = message.includes("还没有") || message.includes("找不到") ? 404 : 400;
     return NextResponse.json({ error: message }, { status });
   }

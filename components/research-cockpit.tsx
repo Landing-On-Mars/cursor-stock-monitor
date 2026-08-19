@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { LoaderCircle, Pencil, Save, X } from "lucide-react";
+import { ArticleMarkdown } from "@/components/article-markdown";
 import { ArticleReader } from "@/components/article-reader";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { StockChart } from "@/components/stock-chart";
 import { sourceLabel } from "@/lib/marketdata/cache-policy";
 import type { QuoteSnapshot } from "@/lib/quote-types";
@@ -60,15 +62,21 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   const [data, setData] = useState<ResearchPayload | null>(null);
   const [quote, setQuote] = useState<QuoteSnapshot | null>(null);
   const [notes, setNotes] = useState<FocusNote[]>([]);
-  const [range, setRange] = useState("6mo");
+  const [range, setRange] = useState("daily");
   const [noteDate, setNoteDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [noteBody, setNoteBody] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noteError, setNoteError] = useState<string | null>(null);
+  const [thesisError, setThesisError] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
+  const [composeSaving, setComposeSaving] = useState(false);
   const [openNote, setOpenNote] = useState<FocusNote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [articlePath, setArticlePath] = useState<string | null>(null);
+  const [editingThesis, setEditingThesis] = useState(false);
+  const [thesisDraft, setThesisDraft] = useState("");
+  const [thesisSaving, setThesisSaving] = useState(false);
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -85,6 +93,8 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         } else {
           setError(null);
           setData(research);
+          setThesisDraft(research.stock?.thesis ?? "");
+          setEditingThesis(false);
         }
         setNotes(Array.isArray(focusJson) ? focusJson : []);
       })
@@ -138,29 +148,68 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   }, [fetchQuote]);
 
   async function addNote() {
-    if (!noteBody.trim()) return;
+    if (!noteBody.trim()) return false;
     setNoteError(null);
-    const res = await fetch("/api/focus", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        symbol,
-        market,
-        notedAt: noteDate,
-        body: noteBody.trim(),
-      }),
-    });
-    const json = (await res.json()) as FocusNote | { error?: string };
-    if (!res.ok) {
-      setNoteError("error" in json && json.error ? json.error : "记下失败。");
-      return;
+    setComposeSaving(true);
+    try {
+      const res = await fetch("/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          market,
+          notedAt: noteDate,
+          body: noteBody.trim(),
+        }),
+      });
+      const json = (await res.json()) as FocusNote | { error?: string };
+      if (!res.ok) {
+        setNoteError("error" in json && json.error ? json.error : "记下失败。");
+        return false;
+      }
+      setNoteBody("");
+      const list = await fetch(
+        `/api/focus?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`,
+      );
+      const notesJson = (await list.json()) as FocusNote[];
+      setNotes(Array.isArray(notesJson) ? notesJson : []);
+      setComposing(false);
+      return true;
+    } catch {
+      setNoteError("记下失败。");
+      return false;
+    } finally {
+      setComposeSaving(false);
     }
-    setNoteBody("");
-    const list = await fetch(
-      `/api/focus?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`,
-    );
-    const notesJson = (await list.json()) as FocusNote[];
-    setNotes(Array.isArray(notesJson) ? notesJson : []);
+  }
+
+  async function saveThesis() {
+    if (!thesisDraft.trim()) return;
+    setThesisError(null);
+    setThesisSaving(true);
+    try {
+      const res = await fetch("/api/research", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          market,
+          thesis: thesisDraft.trim(),
+        }),
+      });
+      const json = (await res.json()) as ResearchPayload & { error?: string };
+      if (!res.ok) {
+        setThesisError(json.error ?? "保存投资逻辑失败。");
+        return;
+      }
+      setData(json);
+      setThesisDraft(json.stock?.thesis ?? thesisDraft);
+      setEditingThesis(false);
+    } catch {
+      setThesisError("保存投资逻辑失败。");
+    } finally {
+      setThesisSaving(false);
+    }
   }
 
   async function removeNote(id: string) {
@@ -210,101 +259,112 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
 
   return (
     <div className="cockpit-stack">
+      <section className="card quote-card">
+        <div className="card-head">
+          <h2>
+            {displayName} <span>{symbol}</span>
+          </h2>
+          <div className="quote-head-meta">
+            {quoteMeta ? (
+              <span
+                className="quote-asof"
+                title="现价、市值、滚动PE 走东财；EV、远期PE、利润率、股息优先 Yahoo。"
+              >
+                {quoteMeta}
+              </span>
+            ) : null}
+            <button className="btn" type="button" disabled={quoteLoading} onClick={() => void refreshQuote()}>
+              {quoteLoading ? "刷新中" : "刷新"}
+            </button>
+          </div>
+        </div>
+        <div className="quote-grid">
+          <div>
+            <span>现价</span>
+            <strong className={up ? "up" : "down"}>{fmtNum(quote?.price ?? null)}</strong>
+          </div>
+          <div>
+            <span>涨跌</span>
+            <strong className={up ? "up" : "down"}>
+              {quote?.changePercent != null ? `${quote.changePercent.toFixed(2)}%` : "—"}
+            </strong>
+          </div>
+          <div>
+            <span>市值</span>
+            <strong>{fmtCap(quote?.marketCap ?? null)}</strong>
+          </div>
+          <div>
+            <span>企业价值</span>
+            <strong>{fmtCap(quote?.enterpriseValue ?? null)}</strong>
+          </div>
+          <div>
+            <span>滚动PE</span>
+            <strong>{fmtNum(quote?.trailingPE ?? null, 1)}</strong>
+          </div>
+          <div>
+            <span>远期PE</span>
+            <strong>{fmtNum(quote?.forwardPE ?? null, 1)}</strong>
+          </div>
+          <div>
+            <span>EV/EBITDA</span>
+            <strong>{fmtNum(quote?.enterpriseToEbitda ?? null, 1)}</strong>
+          </div>
+          <div>
+            <span>净利率</span>
+            <strong>{fmtYield(quote?.profitMargin ?? null)}</strong>
+          </div>
+          <div>
+            <span>营业利润率</span>
+            <strong>{fmtYield(quote?.operatingMargin ?? null)}</strong>
+          </div>
+          <div>
+            <span>远期股息率</span>
+            <strong>{fmtYield(quote?.forwardDividendYield ?? quote?.dividendYield ?? null)}</strong>
+          </div>
+        </div>
+        {quote?.error ? <p className="quote-error">{quote.error}</p> : null}
+      </section>
+
       <div className="cockpit-split">
-        <section className="card quote-card">
+        <section className="card kline-card">
           <div className="card-head">
-            <h2>
-              {displayName} <span>{symbol}</span>
-            </h2>
-            <div className="quote-head-meta">
-              {quoteMeta ? <span className="quote-asof">{quoteMeta}</span> : null}
-              <button className="btn" type="button" disabled={quoteLoading} onClick={() => void refreshQuote()}>
-                {quoteLoading ? "刷新中" : "刷新"}
-              </button>
-            </div>
+            <h2>K 线</h2>
+            {quote?.fromCache ? (
+              <span className="quote-asof">{quote.stale ? "过期缓存" : "本地缓存"}</span>
+            ) : null}
           </div>
-          <div className="quote-grid">
-            <div>
-              <span>现价</span>
-              <strong className={up ? "up" : "down"}>{fmtNum(quote?.price ?? null)}</strong>
-            </div>
-            <div>
-              <span>涨跌</span>
-              <strong className={up ? "up" : "down"}>
-                {quote?.changePercent != null ? `${quote.changePercent.toFixed(2)}%` : "—"}
-              </strong>
-            </div>
-            <div>
-              <span>市值</span>
-              <strong>{fmtCap(quote?.marketCap ?? null)}</strong>
-            </div>
-            <div>
-              <span>企业价值</span>
-              <strong>{fmtCap(quote?.enterpriseValue ?? null)}</strong>
-            </div>
-            <div>
-              <span>滚动PE</span>
-              <strong>{fmtNum(quote?.trailingPE ?? null, 1)}</strong>
-            </div>
-            <div>
-              <span>远期PE</span>
-              <strong>{fmtNum(quote?.forwardPE ?? null, 1)}</strong>
-            </div>
-            <div>
-              <span>EV/EBITDA</span>
-              <strong>{fmtNum(quote?.enterpriseToEbitda ?? null, 1)}</strong>
-            </div>
-            <div>
-              <span>净利率</span>
-              <strong>{fmtYield(quote?.profitMargin ?? null)}</strong>
-            </div>
-            <div>
-              <span>营业利润率</span>
-              <strong>{fmtYield(quote?.operatingMargin ?? null)}</strong>
-            </div>
-            <div>
-              <span>远期股息率</span>
-              <strong>{fmtYield(quote?.forwardDividendYield ?? quote?.dividendYield ?? null)}</strong>
-            </div>
+          <div className="cockpit-pad">
+            <StockChart bars={quote?.bars ?? []} range={range} onRange={setRange} />
           </div>
-          {quote?.error ? <p className="quote-error">{quote.error}</p> : null}
-          {market !== "US" ? (
-            <p className="quote-hint">
-              现价、市值、滚动PE 走东财；EV、远期PE、利润率、股息优先 Yahoo。Yahoo 不通时用东财财报补利润率和股息。
-            </p>
-          ) : null}
         </section>
 
         <section className="card focus-card">
           <div className="card-head focus-head">
-            <h2>现在该看什么</h2>
+            <h2>日志</h2>
             <div className="focus-actions">
-              <input
-                className="focus-date"
-                type="date"
-                value={noteDate}
-                onChange={(event) => setNoteDate(event.target.value)}
-              />
-              <button className="btn btn-primary" type="button" onClick={addNote}>
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={() => {
+                  setNoteDate(new Date().toISOString().slice(0, 10));
+                  setNoteBody("");
+                  setNoteError(null);
+                  setComposing(true);
+                }}
+              >
                 记下
               </button>
             </div>
           </div>
           <div className="focus-panel">
-            <textarea
-              rows={5}
-              placeholder="当天观察，写入 Vault 个股页"
-              value={noteBody}
-              onChange={(event) => setNoteBody(event.target.value)}
-            />
-            {noteError ? <p className="quote-error">{noteError}</p> : null}
+            {noteError && !composing ? <p className="quote-error">{noteError}</p> : null}
             {notes.length > 0 ? (
               <ul className="focus-list">
                 {notes.map((note) => (
                   <li key={note.id}>
                     <button className="focus-note-hit" type="button" onClick={() => setOpenNote(note)}>
-                      <strong>{notePreview(note.body)}</strong>
                       <span>{note.notedAt}</span>
+                      <strong>{notePreview(note.body)}</strong>
                     </button>
                     <button className="focus-note-delete" type="button" onClick={() => removeNote(note.id)}>
                       删除
@@ -312,22 +372,12 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
                   </li>
                 ))}
               </ul>
-            ) : null}
+            ) : (
+              <p className="muted-copy focus-empty">还没有日志。点记下写一条，会存到 Stocks 里这只股票自己的日志文件。</p>
+            )}
           </div>
         </section>
       </div>
-
-      <section className="card">
-        <div className="card-head">
-          <h2>K 线</h2>
-          {quote?.fromCache ? (
-            <span className="quote-asof">{quote.stale ? "过期缓存" : "本地缓存"}</span>
-          ) : null}
-        </div>
-        <div className="cockpit-pad">
-          <StockChart bars={quote?.bars ?? []} range={range} onRange={setRange} />
-        </div>
-      </section>
 
       {data.articles.length > 0 ? (
         <section className="card">
@@ -350,12 +400,62 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         </section>
       ) : null}
 
-      {hasText(stock?.thesis) ? (
-        <section className="card">
+      {stock ? (
+        <section className="card thesis-card">
           <div className="card-head">
             <h2>投资逻辑</h2>
+            <div className="article-reader-actions">
+              {!editingThesis ? (
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setThesisDraft(stock.thesis ?? "");
+                    setEditingThesis(true);
+                    setThesisError(null);
+                  }}
+                >
+                  <Pencil size={14} />
+                  编辑
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="btn btn-primary"
+                    disabled={thesisSaving}
+                    type="button"
+                    onClick={() => void saveThesis()}
+                  >
+                    {thesisSaving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
+                    {thesisSaving ? "保存中…" : "保存"}
+                  </button>
+                  <button
+                    className="btn"
+                    disabled={thesisSaving}
+                    type="button"
+                    onClick={() => {
+                      setThesisDraft(stock.thesis ?? "");
+                      setEditingThesis(false);
+                    }}
+                  >
+                    取消
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <pre className="thesis-body">{stock?.thesis}</pre>
+          {editingThesis ? (
+            <div className="thesis-editor">
+              {thesisError ? <p className="quote-error">{thesisError}</p> : null}
+              <MarkdownEditor onChange={setThesisDraft} value={thesisDraft} />
+            </div>
+          ) : hasText(stock.thesis) ? (
+            <div className="article-markdown thesis-markdown">
+              <ArticleMarkdown value={stock.thesis} />
+            </div>
+          ) : (
+            <p className="muted-copy cockpit-empty-inline">还没有投资逻辑，点编辑写入 Vault 个股页。</p>
+          )}
         </section>
       ) : null}
 
@@ -388,8 +488,35 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         </section>
       ) : null}
 
+      {composing ? (
+        <FocusNoteComposer
+          date={noteDate}
+          body={noteBody}
+          saving={composeSaving}
+          error={noteError}
+          onDate={setNoteDate}
+          onBody={setNoteBody}
+          onSave={() => void addNote()}
+          onClose={() => {
+            if (composeSaving) return;
+            setComposing(false);
+            setNoteError(null);
+            setNoteBody("");
+          }}
+        />
+      ) : null}
+
       {openNote ? (
-        <FocusNoteReader note={openNote} onClose={() => setOpenNote(null)} />
+        <FocusNoteReader
+          note={openNote}
+          symbol={symbol}
+          market={market}
+          onClose={() => setOpenNote(null)}
+          onSaved={(saved) => {
+            setNotes((prev) => prev.map((item) => (item.id === openNote.id ? saved : item)));
+            setOpenNote(saved);
+          }}
+        />
       ) : null}
 
       {articlePath ? (
@@ -424,25 +551,49 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
 }
 
 function notePreview(body: string) {
-  return body.replace(/\s+/g, " ").trim();
+  return body
+    .replace(/\*\*/g, "")
+    .replace(/==/g, "")
+    .replace(/^#+\s+/gm, "")
+    .replace(/^[-*]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function noteTitle(body: string) {
-  const first = body.split("\n").find((line) => line.trim())?.trim() || "观察";
+  const first = body.split("\n").find((line) => line.trim())?.trim() || "日志";
   return first.length > 48 ? `${first.slice(0, 48)}…` : first;
 }
 
-function FocusNoteReader({ note, onClose }: { note: FocusNote; onClose: () => void }) {
+function FocusNoteComposer({
+  date,
+  body,
+  saving,
+  error,
+  onDate,
+  onBody,
+  onSave,
+  onClose,
+}: {
+  date: string;
+  body: string;
+  saving: boolean;
+  error: string | null;
+  onDate: (value: string) => void;
+  onBody: (value: string) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !saving) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, saving]);
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         aria-modal="true"
         className="modal article-modal"
@@ -451,17 +602,197 @@ function FocusNoteReader({ note, onClose }: { note: FocusNote; onClose: () => vo
       >
         <div className="modal-head">
           <div>
-            <h2>{noteTitle(note.body)}</h2>
-            <p className="article-meta">{note.notedAt}</p>
+            <h2>写日志</h2>
+            <input
+              aria-label="日期"
+              className="focus-date"
+              onChange={(event) => onDate(event.target.value)}
+              type="date"
+              value={date}
+            />
           </div>
           <div className="article-reader-actions">
+            <button className="btn btn-primary" disabled={saving || !body.trim()} type="button" onClick={onSave}>
+              {saving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
+              {saving ? "保存中…" : "保存"}
+            </button>
+            <button className="btn" disabled={saving} type="button" onClick={onClose}>
+              取消
+            </button>
             <button aria-label="关闭" type="button" onClick={onClose}>
               <X size={18} />
             </button>
           </div>
         </div>
         <div className="article-body">
-          <pre className="focus-note-copy">{note.body}</pre>
+          {error ? <div className="inline-error">{error}</div> : null}
+          <MarkdownEditor
+            onChange={onBody}
+            placeholder="当天看法，写入 Stocks 里这只股票的日志文件。支持标题、粗体、列表。"
+            value={body}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FocusNoteReader({
+  note,
+  symbol,
+  market,
+  onClose,
+  onSaved,
+}: {
+  note: FocusNote;
+  symbol: string;
+  market: string;
+  onClose: () => void;
+  onSaved: (note: FocusNote) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dateDraft, setDateDraft] = useState(note.notedAt);
+  const [bodyDraft, setBodyDraft] = useState(note.body);
+
+  useEffect(() => {
+    setEditing(false);
+    setError(null);
+    setDateDraft(note.notedAt);
+    setBodyDraft(note.body);
+  }, [note.id, note.notedAt, note.body]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (editing) {
+        setDateDraft(note.notedAt);
+        setBodyDraft(note.body);
+        setEditing(false);
+        setError(null);
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editing, note.body, note.notedAt, onClose]);
+
+  async function saveDraft() {
+    if (!bodyDraft.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/focus/${encodeURIComponent(note.id)}?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            notedAt: dateDraft,
+            body: bodyDraft.trim(),
+          }),
+        },
+      );
+      const json = (await res.json()) as FocusNote | { error?: string };
+      if (!res.ok) {
+        setError("error" in json && json.error ? json.error : "保存失败。");
+        return;
+      }
+      onSaved(json as FocusNote);
+      setEditing(false);
+    } catch {
+      setError("保存失败。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={() => {
+        if (!editing) onClose();
+      }}
+    >
+      <div
+        aria-modal="true"
+        className="modal article-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="modal-head">
+          <div>
+            <h2>{noteTitle(editing ? bodyDraft : note.body)}</h2>
+            {editing ? (
+              <input
+                aria-label="日期"
+                className="focus-date"
+                onChange={(event) => setDateDraft(event.target.value)}
+                type="date"
+                value={dateDraft}
+              />
+            ) : (
+              <p className="article-meta">{note.notedAt}</p>
+            )}
+          </div>
+          <div className="article-reader-actions">
+            {!editing ? (
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setDateDraft(note.notedAt);
+                  setBodyDraft(note.body);
+                  setEditing(true);
+                  setError(null);
+                }}
+              >
+                <Pencil size={14} />
+                编辑
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn btn-primary"
+                  disabled={saving}
+                  type="button"
+                  onClick={() => void saveDraft()}
+                >
+                  {saving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
+                  {saving ? "保存中…" : "保存"}
+                </button>
+                <button
+                  className="btn"
+                  disabled={saving}
+                  type="button"
+                  onClick={() => {
+                    setDateDraft(note.notedAt);
+                    setBodyDraft(note.body);
+                    setEditing(false);
+                    setError(null);
+                  }}
+                >
+                  取消
+                </button>
+              </>
+            )}
+            <button aria-label="关闭" type="button" onClick={onClose}>
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+        <div className="article-body">
+          {error ? <div className="inline-error">{error}</div> : null}
+          {editing ? (
+            <MarkdownEditor onChange={setBodyDraft} value={bodyDraft} />
+          ) : (
+            <div className="article-markdown">
+              <ArticleMarkdown value={note.body} />
+            </div>
+          )}
         </div>
       </div>
     </div>

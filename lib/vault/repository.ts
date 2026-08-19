@@ -4,12 +4,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArticleMarkdown, type ParsedArticle } from "./parse-article";
 import { parseStockMarkdown } from "./parse-stock";
-import { appendFocusNote, parseFocusNotes, removeFocusNote } from "./focus-notes";
-import { describeVaultPath, resolveVaultPath, vaultArticleAsset, vaultFile } from "./path";
+import {
+  appendFocusNote,
+  emptyJournalMarkdown,
+  parseFocusNotes,
+  parseLegacyObservationNotes,
+  removeFocusNote,
+  stripObservationSection,
+  updateFocusNote,
+} from "./focus-notes";
+import { describeVaultPath, resolveVaultPath, vaultArticleAsset, vaultFile, vaultWritableFile } from "./path";
+import { isStockJournalPath, stockJournalPath } from "./journal-path";
 import { articleMentionsStock, symbolKey } from "./symbols";
 import { articleAssetCandidates } from "./article-media";
 import type { ArticleSummary, PeerStock, StockCockpit } from "./types";
 import { replaceFrontmatterScalar, replaceMarkdownBody } from "./write-article";
+import { replaceThesis } from "./write-stock";
 
 export type VaultStatus = {
   ok: boolean;
@@ -72,17 +82,35 @@ export function findStock(symbol: string, market: string): StockCockpit | null {
 export function listStockFocusNotes(symbol: string, market: string) {
   const record = findStockRecord(symbol, market);
   if (!record) return [];
-  const absolute = vaultFile(record.relativePath);
+  migrateStockJournal(record);
+  const absolute = vaultFile(stockJournalPath(record.relativePath));
   if (!absolute) return [];
   return parseFocusNotes(fs.readFileSync(absolute, "utf8"));
 }
 
 export function addStockFocusNote(symbol: string, market: string, notedAt: string, body: string) {
-  return mutateStockFile(symbol, market, (raw) => appendFocusNote(raw, notedAt, body));
+  return mutateJournalFile(symbol, market, (raw) => appendFocusNote(raw, notedAt, body));
+}
+
+export function updateStockFocusNote(
+  symbol: string,
+  market: string,
+  id: string,
+  notedAt: string,
+  body: string,
+) {
+  return mutateJournalFile(symbol, market, (raw) => updateFocusNote(raw, id, notedAt, body));
 }
 
 export function removeStockFocusNote(symbol: string, market: string, id: string) {
-  return mutateStockFile(symbol, market, (raw) => removeFocusNote(raw, id));
+  return mutateJournalFile(symbol, market, (raw) => removeFocusNote(raw, id));
+}
+
+export function updateStockThesis(symbol: string, market: string, thesis: string) {
+  mutateStockFile(symbol, market, (raw) =>
+    replaceFrontmatterScalar(replaceThesis(raw, thesis), "updated_at", localIsoDate()),
+  );
+  return findStock(symbol, market);
 }
 
 function findStockRecord(symbol: string, market: string): StockRecord | null {
@@ -90,6 +118,57 @@ function findStockRecord(symbol: string, market: string): StockRecord | null {
   if (!root) return null;
   loadIndexes(root);
   return stockIndex?.get(symbolKey(symbol, market)) ?? null;
+}
+
+function mutateJournalFile(
+  symbol: string,
+  market: string,
+  mutate: (raw: string) => string,
+) {
+  const record = findStockRecord(symbol, market);
+  if (!record) {
+    throw new Error("Vault 里还没有这只股票的档案。");
+  }
+  migrateStockJournal(record);
+  const relativePath = stockJournalPath(record.relativePath);
+  const absolute = vaultWritableFile(relativePath);
+  if (!absolute) {
+    throw new Error("找不到这只股票的日志文件。");
+  }
+  const current = fs.existsSync(absolute)
+    ? fs.readFileSync(absolute, "utf8")
+    : emptyJournalMarkdown(record.cockpit.symbol || symbol, record.cockpit.name);
+  const next = mutate(current);
+  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  fs.writeFileSync(absolute, next);
+  resetVaultCache();
+  return parseFocusNotes(next);
+}
+
+function migrateStockJournal(record: StockRecord) {
+  const stockAbsolute = vaultFile(record.relativePath);
+  if (!stockAbsolute) return;
+  const stockRaw = fs.readFileSync(stockAbsolute, "utf8");
+  const legacyNotes = parseLegacyObservationNotes(stockRaw);
+  const hasLegacy = /^## 观察[ \t]*$/m.test(stockRaw.replace(/\r\n/g, "\n"));
+  const journalRelative = stockJournalPath(record.relativePath);
+  const journalAbsolute = vaultWritableFile(journalRelative);
+  if (!journalAbsolute) return;
+
+  const journalExists = fs.existsSync(journalAbsolute);
+  if (!journalExists && legacyNotes.length > 0) {
+    let journal = emptyJournalMarkdown(record.cockpit.symbol, record.cockpit.name);
+    for (const note of [...legacyNotes].reverse()) {
+      journal = appendFocusNote(journal, note.notedAt, note.body);
+    }
+    fs.mkdirSync(path.dirname(journalAbsolute), { recursive: true });
+    fs.writeFileSync(journalAbsolute, journal);
+  }
+
+  if (hasLegacy) {
+    fs.writeFileSync(stockAbsolute, stripObservationSection(stockRaw));
+    resetVaultCache();
+  }
 }
 
 function mutateStockFile(
@@ -212,6 +291,7 @@ function loadIndexes(root: string) {
   articleIndex = [];
 
   for (const relativePath of listMarkdown(path.join(root, "Stocks"), "Stocks")) {
+    if (isStockJournalPath(relativePath)) continue;
     try {
       const raw = fs.readFileSync(path.join(root, relativePath), "utf8");
       const cockpit = parseStockMarkdown(relativePath, raw);
@@ -252,4 +332,10 @@ function listMarkdown(absoluteDir: string, prefix: string): string[] {
 
   walk(absoluteDir);
   return files;
+}
+
+function localIsoDate() {
+  const now = new Date();
+  const shifted = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return shifted.toISOString().slice(0, 10);
 }

@@ -66,11 +66,23 @@ export function vaultFile(relativePath: string): string | null {
   return vaultResolve(relativePath, (relative) => relative.endsWith(".md"));
 }
 
+export function vaultWritableFile(relativePath: string): string | null {
+  return vaultResolve(
+    relativePath,
+    (relative) => relative.startsWith("Stocks/") && relative.endsWith(".md"),
+    false,
+  );
+}
+
 export function vaultArticleAsset(relativePath: string): string | null {
   return vaultResolve(relativePath, (relative) => isVaultArticleAssetPath(relative));
 }
 
-function vaultResolve(relativePath: string, allowed: (relative: string) => boolean): string | null {
+function vaultResolve(
+  relativePath: string,
+  allowed: (relative: string) => boolean,
+  mustExist = true,
+): string | null {
   const root = resolveVaultPath();
   if (!root) return null;
 
@@ -79,6 +91,6 @@ function vaultResolve(relativePath: string, allowed: (relative: string) => boole
   if (relative.startsWith("..") || path.isAbsolute(relative)) return null;
   const normalized = normalizeVaultRelative(relative);
   if (!allowed(normalized)) return null;
-  if (!fs.existsSync(/* turbopackIgnore: true */ resolved)) return null;
+  if (mustExist && !fs.existsSync(/* turbopackIgnore: true */ resolved)) return null;
   return resolved;
 }

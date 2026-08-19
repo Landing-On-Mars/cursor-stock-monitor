@@ -1,9 +1,9 @@
 "use client";
 
 import { LoaderCircle, Pencil, Save, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArticleMarkdown } from "@/components/article-markdown";
-import { MarkdownToolbar } from "@/components/markdown-toolbar";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { splitArticleBody, type ArticleBlock } from "@/lib/vault/article-media";
 
 type ArticleDetail = {
@@ -33,7 +33,6 @@ export function ArticleReader({ path, onClose, onSaved }: ArticleReaderProps) {
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState("");
   const [sourceDraft, setSourceDraft] = useState("");
-  const editorRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -196,20 +195,13 @@ export function ArticleReader({ path, onClose, onSaved }: ArticleReaderProps) {
           {error ? <div className="inline-error">{error}</div> : null}
           {!article && !error ? <p className="muted-copy">正在读取 Vault 文章…</p> : null}
           {article && editing ? (
-            <div className="article-editor-wrap">
-              <MarkdownToolbar onChange={setDraft} textareaRef={editorRef} value={draft} />
-              <textarea
-                className="article-editor"
-                onChange={(event) => setDraft(event.target.value)}
-                ref={editorRef}
-                spellCheck={false}
-                value={draft}
-              />
+            <>
+              <MarkdownEditor onChange={setDraft} value={draft} />
               <p className="muted-copy">
                 保存写入 Vault 里的 Markdown。Obsidian 打开同一文件即可看到修改。配图请继续用
                 <code>![[图片.png]]</code>。高亮用 <code>==文字==</code>，红色点工具栏「红色」。
               </p>
-            </div>
+            </>
           ) : null}
           {article && !editing ? (
             <div className="article-markdown">

@@ -10,16 +10,16 @@ type StockChartProps = {
 };
 
 const ranges = [
-  ["1mo", "1月"],
-  ["3mo", "3月"],
-  ["6mo", "6月"],
-  ["1y", "1年"],
-];
+  ["daily", "日K"],
+  ["monthly", "月K"],
+  ["yearly", "年K"],
+] as const;
 
 const PLOT = { left: 8, right: 792, top: 8, bottom: 188 };
 
 export function StockChart({ bars, range, onRange }: StockChartProps) {
-  const drawing = useMemo(() => buildCandles(bars), [bars]);
+  const drawing = useMemo(() => buildCandles(bars, range), [bars, range]);
+  const ariaLabel = range === "yearly" ? "年K" : range === "monthly" ? "月K" : "日K";
 
   return (
     <div className="kline">
@@ -43,7 +43,7 @@ export function StockChart({ bars, range, onRange }: StockChartProps) {
             ))}
           </div>
           <div className="kline-plot">
-            <svg className="kline-svg" viewBox="0 0 800 196" role="img" aria-label="日线 K 线">
+            <svg className="kline-svg" viewBox="0 0 800 196" role="img" aria-label={ariaLabel}>
               <g className="chart-grid">
                 {drawing.yTicks.map((tick) => (
                   <line key={tick.y} x1={PLOT.left} x2={PLOT.right} y1={tick.y} y2={tick.y} />
@@ -83,7 +83,7 @@ export function StockChart({ bars, range, onRange }: StockChartProps) {
   );
 }
 
-function buildCandles(bars: QuoteBar[]) {
+function buildCandles(bars: QuoteBar[], range: string) {
   if (bars.length === 0) return null;
   const highs = bars.map((bar) => bar.high);
   const lows = bars.map((bar) => bar.low);
@@ -92,7 +92,8 @@ function buildCandles(bars: QuoteBar[]) {
   const span = max - min || 1;
   const plotWidth = PLOT.right - PLOT.left;
   const plotHeight = PLOT.bottom - PLOT.top;
-  const width = Math.max(2, Math.min(7, plotWidth / bars.length - 1.2));
+  const maxWidth = bars.length <= 24 ? 14 : bars.length <= 80 ? 10 : 7;
+  const width = Math.max(2, Math.min(maxWidth, plotWidth / bars.length - 1.2));
   const step = plotWidth / Math.max(bars.length - 1, 1);
   const project = (value: number) => PLOT.bottom - ((value - min) / span) * plotHeight;
   const yValues = [max, max - span / 3, min + span / 3, min];
@@ -117,9 +118,9 @@ function buildCandles(bars: QuoteBar[]) {
       key: `${index}-${formatPrice(value)}`,
     })),
     xTicks: [
-      { label: formatDate(bars[0].time) },
-      { label: formatDate(bars[Math.floor(bars.length / 2)].time) },
-      { label: formatDate(bars[bars.length - 1].time) },
+      { label: formatDate(bars[0].time, range) },
+      { label: formatDate(bars[Math.floor(bars.length / 2)].time, range) },
+      { label: formatDate(bars[bars.length - 1].time, range) },
     ],
   };
 }
@@ -130,9 +131,12 @@ function formatPrice(value: number) {
   return value.toFixed(2);
 }
 
-function formatDate(time: number) {
+function formatDate(time: number, range: string) {
   const date = new Date(time);
+  const year = date.getUTCFullYear();
+  if (range === "yearly") return String(year);
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  if (range === "monthly") return `${year}-${month}`;
   const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${date.getUTCFullYear()}-${month}-${day}`;
+  return `${year}-${month}-${day}`;
 }
