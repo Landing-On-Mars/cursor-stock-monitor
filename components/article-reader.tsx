@@ -2,6 +2,7 @@
 
 import { LoaderCircle, Pencil, Save, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ArticleMarkdown } from "@/components/article-markdown";
 import { MarkdownToolbar } from "@/components/markdown-toolbar";
 import { splitArticleBody, type ArticleBlock } from "@/lib/vault/article-media";
 
@@ -210,11 +211,13 @@ export function ArticleReader({ path, onClose, onSaved }: ArticleReaderProps) {
               </p>
             </div>
           ) : null}
-          {article && !editing
-            ? blocks.map((block, index) => (
+          {article && !editing ? (
+            <div className="article-markdown">
+              {blocks.map((block, index) => (
                 <ArticleChunk key={`${block.type}-${index}`} articlePath={article.path} block={block} />
-              ))
-            : null}
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -225,7 +228,7 @@ function ArticleChunk({ articlePath, block }: { articlePath: string; block: Arti
   const [failed, setFailed] = useState(false);
 
   if (block.type === "text") {
-    return <pre className="article-fallback">{block.text}</pre>;
+    return <ArticleMarkdown value={block.text} />;
   }
 
   if (failed) {
