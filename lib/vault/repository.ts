@@ -4,8 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArticleMarkdown, type ParsedArticle } from "./parse-article";
 import { parseStockMarkdown } from "./parse-stock";
-import { describeVaultPath, resolveVaultPath, vaultFile } from "./path";
+import { describeVaultPath, resolveVaultPath, vaultArticleAsset, vaultFile } from "./path";
 import { articleMentionsStock, symbolKey } from "./symbols";
+import { articleAssetCandidates } from "./article-media";
 import type { ArticleSummary, PeerStock, StockCockpit } from "./types";
 
 export type VaultStatus = {
@@ -113,6 +114,14 @@ export function readArticle(relativePath: string): ParsedArticle | null {
   const absolute = vaultFile(relativePath);
   if (!absolute) return null;
   return parseArticleMarkdown(relativePath.replaceAll("\\", "/"), fs.readFileSync(absolute, "utf8"));
+}
+
+export function resolveArticleAsset(articlePath: string, src: string): string | null {
+  for (const candidate of articleAssetCandidates(articlePath, src)) {
+    const absolute = vaultArticleAsset(candidate);
+    if (absolute) return absolute;
+  }
+  return null;
 }
 
 export function cursorPrompt(stock: StockCockpit): string {

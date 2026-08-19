@@ -10,10 +10,10 @@
 - 关联文章按 `symbols` 匹配，可点开阅读
 - 「在 Cursor 里问」只提供可复制的 Agent 提示词，网页不接模型 API
 
-Vault 默认目录是与本项目同级的 `investment-vault`。也可以在 `.env.local` 里设置：
+Vault 默认会找 Google Drive 里的 `Northstar\Vault`。家里是：
 
 ```
-VAULT_PATH=C:\Users\musk\Documents\Journal
+VAULT_PATH=C:\Users\musk\My Drive\Northstar\Vault
 ```
 
 ## 本机路径
@@ -29,7 +29,7 @@ VAULT_PATH=C:\Users\musk\Documents\Journal
 cd C:\Users\ht.tu\cursor-stock-monitor
 ```
 
-Vault 在 **设置** 页填写 Google Drive 里 Journal 的完整路径，点保存。路径记在本机 `data/local-config.json`，办公室和家里互不影响。
+Vault 在 **设置** 页填写 Google Drive 里 `Northstar\Vault` 的完整路径，点保存。路径记在本机 `data/local-config.json`，办公室和家里互不影响。K 线缓存在 Vault 的 `MarketData` 目录，随 Drive 同步。不要再用 `Documents\Journal`。
 
 ## Getting Started
 

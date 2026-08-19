@@ -79,7 +79,12 @@ export default function ResearchPage() {
           ) : null}
         </header>
         {selected ? (
-          <ResearchCockpit symbol={selected.symbol} market={selected.market} name={selected.name} />
+          <ResearchCockpit
+            key={`${selected.market}:${selected.symbol}`}
+            symbol={selected.symbol}
+            market={selected.market}
+            name={selected.name}
+          />
         ) : (
           <section className="card cockpit-empty">
             <strong>从左边目录点一只股票</strong>

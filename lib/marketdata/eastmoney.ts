@@ -28,6 +28,18 @@ export function eastmoneySecid(symbol: string, market: string): string | null {
   return null;
 }
 
+export function eastmoneySecuCode(symbol: string, market: string): string | null {
+  const canonical = canonicalSymbol(symbol, market);
+  if (!canonical) return null;
+  if (market === "HK") return `${canonical.replace(/^0+/, "").padStart(5, "0")}.HK`;
+  if (market === "CN") {
+    const code = canonical.padStart(6, "0");
+    const suffix = code.startsWith("6") || code.startsWith("9") ? "SH" : "SZ";
+    return `${code}.${suffix}`;
+  }
+  return null;
+}
+
 export function statsFromEastmoney(data: unknown): EastmoneyQuote {
   const row = asRecord(asRecord(data)["data"]);
   const trailingPE = num(row.f164) ?? num(row.f163);

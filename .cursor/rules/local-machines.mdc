@@ -7,11 +7,13 @@ alwaysApply: true
 
 - 办公室电脑 Dashboard：`C:\Users\ht.tu\cursor-stock-monitor`
 - 家里电脑 Dashboard：`C:\Users\musk\cursor-stock-monitor`
-- 家里 Vault（Obsidian Journal）：`C:\Users\musk\Documents\Journal`
+- 家里 Vault（Google Drive / Obsidian）：`C:\Users\musk\My Drive\Northstar\Vault`
+
+不要再用 `C:\Users\musk\Documents\Journal` 作为 Vault。
 
 办公室启动前先 `cd C:\Users\ht.tu\cursor-stock-monitor`，不要在 `H:\` 根目录跑 npm / npx。
 
 Vault 路径在设置页填写并保存在本机 `data/local-config.json`（不进 Git）：
-- 办公室：这台电脑的 Google Drive / Journal
-- 家里：家里电脑的 Google Drive / Journal
-每台电脑各保存一次。
+- 家里：`C:\Users\musk\My Drive\Northstar\Vault`
+- 办公室：这台电脑 Google Drive 里的 `Northstar\Vault`
+每台电脑各保存一次。K 线缓存在 `Vault/MarketData`，随 Drive 同步。

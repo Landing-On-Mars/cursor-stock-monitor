@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { splitArticleBody, type ArticleBlock } from "@/lib/vault/article-media";
 
 type ArticleDetail = {
   path: string;
@@ -9,10 +10,6 @@ type ArticleDetail = {
   source: string;
   publishedAt: string;
   status: string;
-  summary: string;
-  points: string;
-  impact: string;
-  judgment: string;
   body: string;
 };
 
@@ -24,6 +21,14 @@ type ArticleReaderProps = {
 export function ArticleReader({ path, onClose }: ArticleReaderProps) {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   useEffect(() => {
     let active = true;
@@ -52,6 +57,8 @@ export function ArticleReader({ path, onClose }: ArticleReaderProps) {
     };
   }, [path]);
 
+  const blocks = article ? splitArticleBody(article.body) : [];
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div
@@ -69,37 +76,43 @@ export function ArticleReader({ path, onClose }: ArticleReaderProps) {
               {article?.status ? ` · ${article.status}` : ""}
             </p>
           </div>
-          <button aria-label="关闭" onClick={onClose}><X size={18} /></button>
+          <button aria-label="关闭" type="button" onClick={onClose}>
+            <X size={18} />
+          </button>
         </div>
         <div className="article-body">
-          {error && <div className="inline-error">{error}</div>}
-          {!article && !error && <p className="muted-copy">正在读取 Vault 文章…</p>}
-          {article && (
-            <>
-              {article.summary && <Section title="摘要" text={article.summary} />}
-              {article.points && <Section title="关键观点" text={article.points} />}
-              {article.impact && <Section title="对投资逻辑的影响" text={article.impact} />}
-              {article.judgment && <Section title="我的判断" text={article.judgment} />}
-              {!article.summary && !article.points && (
-                <pre className="article-fallback">{stripFront(article.body)}</pre>
-              )}
-            </>
-          )}
+          {error ? <div className="inline-error">{error}</div> : null}
+          {!article && !error ? <p className="muted-copy">正在读取 Vault 文章…</p> : null}
+          {article
+            ? blocks.map((block, index) => (
+                <ArticleChunk key={`${block.type}-${index}`} articlePath={article.path} block={block} />
+              ))
+            : null}
         </div>
       </div>
     </div>
   );
 }
 
-function Section({ title, text }: { title: string; text: string }) {
-  return (
-    <section className="article-section">
-      <h3>{title}</h3>
-      <div className="article-text">{text}</div>
-    </section>
-  );
-}
+function ArticleChunk({ articlePath, block }: { articlePath: string; block: ArticleBlock }) {
+  const [failed, setFailed] = useState(false);
 
-function stripFront(body: string) {
-  return body.replace(/^---[\s\S]*?---\s*/, "").trim();
+  if (block.type === "text") {
+    return <pre className="article-fallback">{block.text}</pre>;
+  }
+
+  if (failed) {
+    return <p className="muted-copy">图片未找到：{block.src}</p>;
+  }
+
+  const href = block.remote
+    ? block.src
+    : `/api/research/article/asset?article=${encodeURIComponent(articlePath)}&src=${encodeURIComponent(block.src)}`;
+
+  return (
+    <figure className="article-figure">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img alt={block.alt} src={href} onError={() => setFailed(true)} />
+    </figure>
+  );
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { QuoteBar, QuoteSnapshot } from "../quote-types";
+import { STATS_VERSION } from "./cache-policy";
 import { changeFromBars } from "./csv";
 import { emptyStats, mergeStats, statsFromQuote, statsFromQuoteSummary } from "./yahoo-fields";
 import { clearYahooSession, getYahooSession, yahooRequestHeaders } from "./yahoo-session";
@@ -107,7 +108,7 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<QuoteSnapsho
     fiftyTwoWeekLow: quoteRow?.fiftyTwoWeekLow ?? null,
     bars,
     source: "yahoo",
-    statsVersion: 4,
+    statsVersion: STATS_VERSION,
   };
 }
 

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ArticleReader } from "@/components/article-reader";
 import { StockChart } from "@/components/stock-chart";
+import { sourceLabel } from "@/lib/marketdata/cache-policy";
 import type { QuoteSnapshot } from "@/lib/quote-types";
 import type { ArticleSummary, StockCockpit } from "@/lib/vault/types";
 
@@ -62,7 +64,8 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   const [noteBody, setNoteBody] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [articlePath, setArticlePath] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -90,22 +93,46 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
     };
   }, [symbol, market]);
 
+  const fetchQuote = useCallback(async (force: boolean) => {
+    const params = new URLSearchParams({ symbol, market, range });
+    if (force) params.set("force", "1");
+    const res = await fetch(`/api/quotes?${params.toString()}`, { cache: "no-store" });
+    return (await res.json()) as QuoteSnapshot;
+  }, [symbol, market, range]);
+
+  const refreshQuote = useCallback(async () => {
+    setQuoteLoading(true);
+    try {
+      setQuote(await fetchQuote(true));
+    } catch {
+      setQuote(null);
+    } finally {
+      setQuoteLoading(false);
+    }
+  }, [fetchQuote]);
+
   useEffect(() => {
     let active = true;
-    fetch(
-      `/api/quotes?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}&range=${encodeURIComponent(range)}`,
-    )
-      .then((res) => res.json() as Promise<QuoteSnapshot>)
-      .then((json) => {
-        if (active) setQuote(json);
-      })
-      .catch(() => {
+    void (async () => {
+      setQuoteLoading(true);
+      try {
+        const json = await fetchQuote(false);
+        if (!active) return;
+        setQuote(json);
+        if (json.fromCache && json.marketCap == null) {
+          const fresh = await fetchQuote(true);
+          if (active) setQuote(fresh);
+        }
+      } catch {
         if (active) setQuote(null);
-      });
+      } finally {
+        if (active) setQuoteLoading(false);
+      }
+    })();
     return () => {
       active = false;
     };
-  }, [symbol, market, range]);
+  }, [fetchQuote]);
 
   async function addNote() {
     if (!noteBody.trim()) return;
@@ -159,6 +186,9 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   const stock = data.stock;
   const displayName = stock?.name || name || symbol;
   const up = (quote?.changePercent ?? 0) >= 0;
+  const quoteMeta = [quote?.asOf, sourceLabel(quote?.source, quote?.fromCache, quote?.stale)]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="cockpit-stack">
@@ -168,9 +198,12 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
             <h2>
               {displayName} <span>{symbol}</span>
             </h2>
-            {quote?.asOf ? (
-              <span className="quote-asof">{quote.stale ? `缓存 ${quote.asOf}` : quote.asOf}</span>
-            ) : null}
+            <div className="quote-head-meta">
+              {quoteMeta ? <span className="quote-asof">{quoteMeta}</span> : null}
+              <button className="btn" type="button" disabled={quoteLoading} onClick={() => void refreshQuote()}>
+                {quoteLoading ? "刷新中" : "刷新"}
+              </button>
+            </div>
           </div>
           <div className="quote-grid">
             <div>
@@ -216,6 +249,12 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               <strong>{fmtYield(quote?.forwardDividendYield ?? quote?.dividendYield ?? null)}</strong>
             </div>
           </div>
+          {quote?.error ? <p className="quote-error">{quote.error}</p> : null}
+          {market !== "US" ? (
+            <p className="quote-hint">
+              现价、市值、滚动PE 走东财；EV、远期PE、利润率、股息优先 Yahoo。Yahoo 不通时用东财财报补利润率和股息。
+            </p>
+          ) : null}
         </section>
 
         <section className="card focus-card">
@@ -260,7 +299,9 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
       <section className="card">
         <div className="card-head">
           <h2>K 线</h2>
-          {quote?.fromCache ? <span className="quote-asof">本地</span> : null}
+          {quote?.fromCache ? (
+            <span className="quote-asof">{quote.stale ? "过期缓存" : "本地缓存"}</span>
+          ) : null}
         </div>
         <div className="cockpit-pad">
           <StockChart bars={quote?.bars ?? []} range={range} onRange={setRange} />
@@ -275,11 +316,13 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           <ul className="article-list">
             {data.articles.map((article) => (
               <li key={article.path}>
-                <strong>{article.title}</strong>
-                <span>
-                  {article.publishedAt || "无日期"}
-                  {article.source ? ` · ${article.source}` : ""}
-                </span>
+                <button className="article-hit" type="button" onClick={() => setArticlePath(article.path)}>
+                  <strong>{article.title}</strong>
+                  <span>
+                    {article.publishedAt || "无日期"}
+                    {article.source ? ` · ${article.source}` : ""}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
@@ -323,6 +366,8 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           <pre className="cursor-prompt">{data.cursorPrompt}</pre>
         </section>
       ) : null}
+
+      {articlePath ? <ArticleReader key={articlePath} path={articlePath} onClose={() => setArticlePath(null)} /> : null}
     </div>
   );
 }
