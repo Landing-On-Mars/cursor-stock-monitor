@@ -69,13 +69,13 @@ export async function POST(request: Request) {
   }
 
   const rawSymbol = body.symbol?.trim().toUpperCase();
-  const name = body.name?.trim();
   const note = body.note?.trim() ?? "";
   const symbol =
     rawSymbol && body.market ? canonicalSymbol(rawSymbol, body.market) : rawSymbol;
+  const name = body.name?.trim() || symbol;
 
-  if (!symbol || !name) {
-    return NextResponse.json({ error: "股票代码和名称不能为空。" }, { status: 400 });
+  if (!symbol) {
+    return NextResponse.json({ error: "股票代码不能为空。" }, { status: 400 });
   }
 
   if (!body.market || !MARKETS.includes(body.market)) {
