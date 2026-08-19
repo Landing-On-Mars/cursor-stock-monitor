@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { ArticleReader } from "@/components/article-reader";
 import { StockChart } from "@/components/stock-chart";
 import { sourceLabel } from "@/lib/marketdata/cache-policy";
@@ -22,7 +23,7 @@ type ResearchPayload = {
 };
 
 type FocusNote = {
-  id: number;
+  id: string;
   notedAt: string;
   body: string;
 };
@@ -64,6 +65,8 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   const [noteBody, setNoteBody] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [openNote, setOpenNote] = useState<FocusNote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [articlePath, setArticlePath] = useState<string | null>(null);
   useEffect(() => {
@@ -136,6 +139,7 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
 
   async function addNote() {
     if (!noteBody.trim()) return;
+    setNoteError(null);
     const res = await fetch("/api/focus", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -146,18 +150,32 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         body: noteBody.trim(),
       }),
     });
-    if (!res.ok) return;
+    const json = (await res.json()) as FocusNote | { error?: string };
+    if (!res.ok) {
+      setNoteError("error" in json && json.error ? json.error : "记下失败。");
+      return;
+    }
     setNoteBody("");
     const list = await fetch(
       `/api/focus?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`,
     );
-    const json = (await list.json()) as FocusNote[];
-    setNotes(Array.isArray(json) ? json : []);
+    const notesJson = (await list.json()) as FocusNote[];
+    setNotes(Array.isArray(notesJson) ? notesJson : []);
   }
 
-  async function removeNote(id: number) {
-    await fetch(`/api/focus/${id}`, { method: "DELETE" });
+  async function removeNote(id: string) {
+    setNoteError(null);
+    const res = await fetch(
+      `/api/focus/${encodeURIComponent(id)}?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: string };
+      setNoteError(json.error ?? "删除失败。");
+      return;
+    }
     setNotes((prev) => prev.filter((note) => note.id !== id));
+    setOpenNote((current) => (current?.id === id ? null : current));
   }
 
   async function copyPrompt() {
@@ -275,17 +293,20 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           <div className="focus-panel">
             <textarea
               rows={5}
-              placeholder="跟踪点"
+              placeholder="当天观察，写入 Vault 个股页"
               value={noteBody}
               onChange={(event) => setNoteBody(event.target.value)}
             />
+            {noteError ? <p className="quote-error">{noteError}</p> : null}
             {notes.length > 0 ? (
               <ul className="focus-list">
                 {notes.map((note) => (
                   <li key={note.id}>
-                    <time>{note.notedAt}</time>
-                    <p>{note.body}</p>
-                    <button type="button" onClick={() => removeNote(note.id)}>
+                    <button className="focus-note-hit" type="button" onClick={() => setOpenNote(note)}>
+                      <strong>{notePreview(note.body)}</strong>
+                      <span>{note.notedAt}</span>
+                    </button>
+                    <button className="focus-note-delete" type="button" onClick={() => removeNote(note.id)}>
                       删除
                     </button>
                   </li>
@@ -367,6 +388,10 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         </section>
       ) : null}
 
+      {openNote ? (
+        <FocusNoteReader note={openNote} onClose={() => setOpenNote(null)} />
+      ) : null}
+
       {articlePath ? (
         <ArticleReader
           key={articlePath}
@@ -394,6 +419,51 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+function notePreview(body: string) {
+  return body.replace(/\s+/g, " ").trim();
+}
+
+function noteTitle(body: string) {
+  const first = body.split("\n").find((line) => line.trim())?.trim() || "观察";
+  return first.length > 48 ? `${first.slice(0, 48)}…` : first;
+}
+
+function FocusNoteReader({ note, onClose }: { note: FocusNote; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <div
+        aria-modal="true"
+        className="modal article-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="modal-head">
+          <div>
+            <h2>{noteTitle(note.body)}</h2>
+            <p className="article-meta">{note.notedAt}</p>
+          </div>
+          <div className="article-reader-actions">
+            <button aria-label="关闭" type="button" onClick={onClose}>
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+        <div className="article-body">
+          <pre className="focus-note-copy">{note.body}</pre>
+        </div>
+      </div>
     </div>
   );
 }

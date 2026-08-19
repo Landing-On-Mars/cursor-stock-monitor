@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArticleMarkdown, type ParsedArticle } from "./parse-article";
 import { parseStockMarkdown } from "./parse-stock";
+import { appendFocusNote, parseFocusNotes, removeFocusNote } from "./focus-notes";
 import { describeVaultPath, resolveVaultPath, vaultArticleAsset, vaultFile } from "./path";
 import { articleMentionsStock, symbolKey } from "./symbols";
 import { articleAssetCandidates } from "./article-media";
@@ -65,10 +66,49 @@ export function listStocks(): StockCockpit[] {
 }
 
 export function findStock(symbol: string, market: string): StockCockpit | null {
+  return findStockRecord(symbol, market)?.cockpit ?? null;
+}
+
+export function listStockFocusNotes(symbol: string, market: string) {
+  const record = findStockRecord(symbol, market);
+  if (!record) return [];
+  const absolute = vaultFile(record.relativePath);
+  if (!absolute) return [];
+  return parseFocusNotes(fs.readFileSync(absolute, "utf8"));
+}
+
+export function addStockFocusNote(symbol: string, market: string, notedAt: string, body: string) {
+  return mutateStockFile(symbol, market, (raw) => appendFocusNote(raw, notedAt, body));
+}
+
+export function removeStockFocusNote(symbol: string, market: string, id: string) {
+  return mutateStockFile(symbol, market, (raw) => removeFocusNote(raw, id));
+}
+
+function findStockRecord(symbol: string, market: string): StockRecord | null {
   const root = resolveVaultPath();
   if (!root) return null;
   loadIndexes(root);
-  return stockIndex?.get(symbolKey(symbol, market))?.cockpit ?? null;
+  return stockIndex?.get(symbolKey(symbol, market)) ?? null;
+}
+
+function mutateStockFile(
+  symbol: string,
+  market: string,
+  mutate: (raw: string) => string,
+) {
+  const record = findStockRecord(symbol, market);
+  if (!record) {
+    throw new Error("Vault 里还没有这只股票的档案。");
+  }
+  const absolute = vaultFile(record.relativePath);
+  if (!absolute) {
+    throw new Error("找不到这只股票的档案。");
+  }
+  const next = mutate(fs.readFileSync(absolute, "utf8"));
+  fs.writeFileSync(absolute, next);
+  resetVaultCache();
+  return parseFocusNotes(next);
 }
 
 export function relatedArticles(symbol: string, market: string, limit = 8): ArticleSummary[] {

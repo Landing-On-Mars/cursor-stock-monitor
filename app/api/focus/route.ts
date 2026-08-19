@@ -1,36 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { MARKETS, type Market } from "@/lib/watchlist-types";
+import {
+  addStockFocusNote,
+  listStockFocusNotes,
+} from "@/lib/vault/repository";
 
 export const dynamic = "force-dynamic";
 
 export type FocusNote = {
-  id: number;
+  id: string;
   symbol: string;
   market: Market;
   notedAt: string;
   body: string;
-  createdAt: string;
 };
 
-type FocusRow = {
-  id: number;
-  symbol: string;
-  market: Market;
-  noted_at: string;
-  body: string;
-  created_at: string;
-};
-
-function toNote(row: FocusRow): FocusNote {
-  return {
-    id: row.id,
-    symbol: row.symbol,
-    market: row.market,
-    notedAt: row.noted_at,
-    body: row.body,
-    createdAt: row.created_at,
-  };
+function withStock(symbol: string, market: Market, notedAt: string, body: string, id: string): FocusNote {
+  return { id, symbol, market, notedAt, body };
 }
 
 export async function GET(request: NextRequest) {
@@ -40,16 +26,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "请提供有效的股票代码和市场。" }, { status: 400 });
   }
 
-  const rows = db
-    .prepare(
-      `SELECT id, symbol, market, noted_at, body, created_at
-       FROM focus_notes
-       WHERE symbol = ? AND market = ?
-       ORDER BY noted_at DESC, id DESC`,
-    )
-    .all(symbol, market) as FocusRow[];
-
-  return NextResponse.json(rows.map(toNote));
+  const notes = listStockFocusNotes(symbol, market).map((note) =>
+    withStock(symbol, market as Market, note.notedAt, note.body, note.id),
+  );
+  return NextResponse.json(notes);
 }
 
 export async function POST(request: Request) {
@@ -72,19 +52,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请填写日期和内容。" }, { status: 400 });
   }
 
-  const result = db
-    .prepare(
-      `INSERT INTO focus_notes (symbol, market, noted_at, body)
-       VALUES (?, ?, ?, ?)`,
-    )
-    .run(symbol, market, notedAt, text);
-
-  const row = db
-    .prepare(
-      `SELECT id, symbol, market, noted_at, body, created_at
-       FROM focus_notes WHERE id = ?`,
-    )
-    .get(result.lastInsertRowid) as FocusRow;
-
-  return NextResponse.json(toNote(row), { status: 201 });
+  try {
+    const notes = addStockFocusNote(symbol, market, notedAt, text);
+    const created = notes[0];
+    return NextResponse.json(
+      withStock(symbol, market as Market, created.notedAt, created.body, created.id),
+      { status: 201 },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "保存观察失败。";
+    const status = message.includes("还没有") || message.includes("找不到") ? 404 : 400;
+    return NextResponse.json({ error: message }, { status });
+  }
 }
