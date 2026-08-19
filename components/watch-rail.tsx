@@ -1,13 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  LoaderCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Search,
+} from "lucide-react";
+import { draftFromQuery, type StockSearchResult } from "@/lib/marketdata/stock-search";
 import {
   CATEGORY_LABEL,
   MARKET_LABEL,
   WATCHLIST_CATEGORIES,
-  type Market,
   type WatchlistCategory,
   type WatchlistItem,
 } from "@/lib/watchlist-types";
@@ -47,9 +56,10 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [vault, setVault] = useState<VaultStatus | null>(null);
   const [query, setQuery] = useState("");
-  const [symbol, setSymbol] = useState("");
-  const [name, setName] = useState("");
-  const [market, setMarket] = useState<Market>("US");
+  const [stockQuery, setStockQuery] = useState("");
+  const [picked, setPicked] = useState<StockSearchResult | null>(null);
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const [category, setCategory] = useState<WatchlistCategory>("CORE");
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -57,7 +67,10 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
   });
   const [openGroups, setOpenGroups] = useState<GroupState>(readGroups);
   const [adding, setAdding] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequest = useRef(0);
 
   function load() {
     return fetch("/api/watchlist")
@@ -103,6 +116,13 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
     };
   }, [reloadToken]);
 
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    },
+    [],
+  );
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return items;
@@ -111,34 +131,87 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
     );
   }, [items, query]);
 
+  const pending = picked ?? draftFromQuery(stockQuery);
+
+  function resetAddForm() {
+    setAdding(false);
+    setStockQuery("");
+    setPicked(null);
+    setSearchResults([]);
+    setSearching(false);
+    setSubmitting(false);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+  }
+
+  function searchStocks(value: string) {
+    setStockQuery(value);
+    setPicked(null);
+    setSearchResults([]);
+    setError("");
+
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    const queryValue = value.trim();
+    if (!queryValue) {
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const requestId = ++searchRequest.current;
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/stocks/search?q=${encodeURIComponent(queryValue)}`,
+          { cache: "no-store" },
+        );
+        const body = (await response.json()) as StockSearchResult[] | { error?: string };
+        if (requestId !== searchRequest.current) return;
+        if (!response.ok || !Array.isArray(body)) {
+          setSearchResults([]);
+          return;
+        }
+        setSearchResults(body);
+      } catch {
+        if (requestId !== searchRequest.current) return;
+        setSearchResults([]);
+      } finally {
+        if (requestId === searchRequest.current) setSearching(false);
+      }
+    }, 280);
+  }
+
   async function add() {
-    if (!symbol.trim() || !name.trim()) return;
+    const stock = pending;
+    if (!stock || submitting) return;
+    setSubmitting(true);
+    setError("");
     const res = await fetch("/api/watchlist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        symbol: symbol.trim().toUpperCase(),
-        name: name.trim(),
-        market,
+        symbol: stock.symbol,
+        name: stock.name,
+        market: stock.market,
         category,
         note: "",
       }),
     });
     const json = (await res.json().catch(() => null)) as WatchlistItem | { error?: string } | null;
     if (!res.ok) {
+      setSubmitting(false);
       setError(json && "error" in json ? json.error ?? "添加失败。" : "添加失败。");
       return;
     }
-    setSymbol("");
-    setName("");
-    setAdding(false);
-    setError("");
+    const item = json as WatchlistItem;
     setOpenGroups((prev) => {
       const next = { ...prev, [category]: true };
       window.localStorage.setItem("northstar-watch-groups", JSON.stringify(next));
       return next;
     });
+    resetAddForm();
+    setError("");
     await load();
+    onSelect(item);
   }
 
   function toggleCollapsed() {
@@ -235,37 +308,76 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
 
           <div className="watch-add">
             {adding ? (
-              <>
-                <input placeholder="代码" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
-                <input placeholder="名称" value={name} onChange={(event) => setName(event.target.value)} />
-                <div className="watch-add-row">
-                  <select value={market} onChange={(event) => setMarket(event.target.value as Market)}>
-                    {Object.entries(MARKET_LABEL).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
+              <div className="watch-add-form">
+                <label className={`watch-add-search ${picked ? "is-picked" : ""}`}>
+                  {searching ? <LoaderCircle className="spin" size={13} /> : picked ? <Check size={13} /> : <Search size={13} />}
+                  <input
+                    autoComplete="off"
+                    autoFocus
+                    placeholder="代码或名称，如 0883"
+                    value={stockQuery}
+                    onChange={(event) => searchStocks(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void add();
+                      }
+                      if (event.key === "Escape") resetAddForm();
+                    }}
+                  />
+                </label>
+                {searchResults.length > 0 ? (
+                  <div className="watch-add-results">
+                    {searchResults.map((result) => (
+                      <button
+                        key={`${result.market}-${result.symbol}`}
+                        type="button"
+                        onClick={() => {
+                          setPicked(result);
+                          setStockQuery(`${result.symbol} ${result.name}`);
+                          setSearchResults([]);
+                        }}
+                      >
+                        <strong>{result.symbol}</strong>
+                        <span>{result.name}</span>
+                        <i>{MARKET_LABEL[result.market]}</i>
+                      </button>
                     ))}
-                  </select>
-                  <select
-                    value={category}
-                    onChange={(event) => setCategory(event.target.value as WatchlistCategory)}
+                  </div>
+                ) : null}
+                {picked ? (
+                  <p className="watch-add-picked">
+                    {picked.name} · {MARKET_LABEL[picked.market]}
+                  </p>
+                ) : stockQuery.trim() && !searching && searchResults.length === 0 && pending ? (
+                  <p className="watch-rail-hint">
+                    未搜到匹配，将按 {MARKET_LABEL[pending.market]} {pending.symbol} 加入
+                  </p>
+                ) : null}
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value as WatchlistCategory)}
+                >
+                  {WATCHLIST_CATEGORIES.map((value) => (
+                    <option key={value} value={value}>
+                      {CATEGORY_LABEL[value]}
+                    </option>
+                  ))}
+                </select>
+                <div className="watch-add-actions">
+                  <button
+                    className="watch-add-join"
+                    disabled={!pending || submitting}
+                    type="button"
+                    onClick={() => void add()}
                   >
-                    {WATCHLIST_CATEGORIES.map((value) => (
-                      <option key={value} value={value}>
-                        {CATEGORY_LABEL[value]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="watch-add-row">
-                  <button className="btn btn-primary" type="button" onClick={add}>
-                    加入
+                    {submitting ? "加入中…" : "加入"}
                   </button>
-                  <button className="btn" type="button" onClick={() => setAdding(false)}>
+                  <button className="watch-add-cancel" type="button" onClick={resetAddForm}>
                     取消
                   </button>
                 </div>
-              </>
+              </div>
             ) : (
               <button className="watch-add-toggle" type="button" onClick={() => setAdding(true)}>
                 <Plus size={14} /> 添加

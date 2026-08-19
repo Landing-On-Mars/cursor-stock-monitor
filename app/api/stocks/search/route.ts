@@ -1,42 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Market } from "@/lib/watchlist-types";
+import {
+  mergeSearchResults,
+  parseEastmoneySuggest,
+  parseYahooQuotes,
+  type StockSearchResult,
+} from "@/lib/marketdata/stock-search";
+import { yahooRequestHeaders } from "@/lib/marketdata/yahoo-session";
 
 export const dynamic = "force-dynamic";
-
-type YahooQuote = {
-  exchange?: string;
-  longname?: string;
-  quoteType?: string;
-  shortname?: string;
-  symbol?: string;
-};
-
-type YahooSearchResponse = {
-  quotes?: YahooQuote[];
-};
-
-const exchangeMarkets: Record<string, Market> = {
-  ASE: "US",
-  NGM: "US",
-  NMS: "US",
-  NYQ: "US",
-  PCX: "US",
-  HKG: "HK",
-  SHH: "CN",
-  SHZ: "CN",
-  TYO: "OTHER",
-  JPX: "OTHER",
-  OSA: "OTHER",
-  KSC: "OTHER",
-  KOE: "OTHER",
-  KOS: "OTHER",
-};
-
-function normalizeSymbol(symbol: string, market: Market) {
-  if (market === "HK") return symbol.replace(/\.HK$/i, "");
-  if (market === "CN") return symbol.replace(/\.(SS|SZ)$/i, "");
-  return symbol;
-}
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim();
@@ -49,6 +20,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "搜索内容过长。" }, { status: 400 });
   }
 
+  const [yahoo, eastmoney] = await Promise.all([
+    searchYahoo(query),
+    searchEastmoney(query),
+  ]);
+
+  const results = mergeSearchResults(query, [eastmoney, yahoo]).slice(0, 12);
+  return NextResponse.json(results);
+}
+
+async function searchYahoo(query: string): Promise<StockSearchResult[]> {
   const endpoint = new URL("https://query2.finance.yahoo.com/v1/finance/search");
   endpoint.searchParams.set("q", query);
   endpoint.searchParams.set("quotesCount", "12");
@@ -60,45 +41,42 @@ export async function GET(request: NextRequest) {
     const response = await fetch(endpoint, {
       cache: "no-store",
       headers: {
+        ...yahooRequestHeaders(),
         Accept: "application/json",
-        "User-Agent": "Mozilla/5.0 Northstar/1.0",
       },
       signal: AbortSignal.timeout(8_000),
     });
-
-    if (response.status === 400) {
-      return NextResponse.json([]);
-    }
-
-    if (!response.ok) {
-      throw new Error(`Yahoo Finance returned ${response.status}`);
-    }
-
-    const data = (await response.json()) as YahooSearchResponse;
-    const results = (data.quotes ?? [])
-      .filter(
-        (quote) =>
-          quote.quoteType === "EQUITY" &&
-          quote.symbol &&
-          quote.exchange &&
-          exchangeMarkets[quote.exchange],
-      )
-      .map((quote) => {
-        const market = exchangeMarkets[quote.exchange as string];
-        return {
-          symbol: normalizeSymbol(quote.symbol as string, market),
-          yahooSymbol: quote.symbol,
-          name: quote.longname || quote.shortname || quote.symbol,
-          market,
-        };
-      });
-
-    return NextResponse.json(results);
+    if (!response.ok) return [];
+    const data = (await response.json()) as { quotes?: Parameters<typeof parseYahooQuotes>[0] };
+    return parseYahooQuotes(data.quotes ?? []);
   } catch (error) {
-    console.error("Stock search failed:", error);
-    return NextResponse.json(
-      { error: "股票搜索服务暂时不可用，请稍后重试。" },
-      { status: 502 },
-    );
+    console.error("Yahoo stock search failed:", error);
+    return [];
+  }
+}
+
+async function searchEastmoney(query: string): Promise<StockSearchResult[]> {
+  const endpoint = new URL("https://searchapi.eastmoney.com/api/suggest/get");
+  endpoint.searchParams.set("input", query);
+  endpoint.searchParams.set("type", "14");
+  endpoint.searchParams.set("token", "D43BF722C8E33BDC906FB84D85E326E8");
+  endpoint.searchParams.set("count", "12");
+
+  try {
+    const response = await fetch(endpoint, {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        Referer: "https://www.eastmoney.com/",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) return [];
+    return parseEastmoneySuggest(await response.json());
+  } catch (error) {
+    console.error("Eastmoney stock search failed:", error);
+    return [];
   }
 }
