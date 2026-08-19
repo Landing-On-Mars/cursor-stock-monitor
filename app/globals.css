@@ -305,6 +305,7 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .market-us { background: #edf1f8; color: #45618e; }
 .market-hk { background: #f8efed; color: #9a5c50; }
 .market-cn { background: #f7f0e7; color: #8f6639; }
+.market-other { background: #f3eee8; color: #7a6248; }
 .watch-category { border-radius: 12px; font-size: 9px; justify-self: start; padding: 4px 8px; }
 .watch-category-core { background: var(--green-soft); color: var(--green); }
 .watch-category-watch { background: var(--amber-soft); color: var(--amber); }

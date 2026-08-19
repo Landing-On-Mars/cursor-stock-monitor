@@ -13,9 +13,9 @@ import {
   Search,
 } from "lucide-react";
 import { draftFromQuery, type StockSearchResult } from "@/lib/marketdata/stock-search";
+import { exchangeLabel } from "@/lib/vault/symbols";
 import {
   CATEGORY_LABEL,
-  MARKET_LABEL,
   WATCHLIST_CATEGORIES,
   type WatchlistCategory,
   type WatchlistItem,
@@ -131,7 +131,7 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
     );
   }, [items, query]);
 
-  const pending = picked ?? draftFromQuery(stockQuery);
+  const pending = picked ?? matchingSearch(stockQuery, searchResults) ?? draftFromQuery(stockQuery);
 
   function resetAddForm() {
     setAdding(false);
@@ -340,18 +340,20 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
                       >
                         <strong>{result.symbol}</strong>
                         <span>{result.name}</span>
-                        <i>{MARKET_LABEL[result.market]}</i>
+                        <i>{exchangeLabel(result.symbol, result.market)}</i>
                       </button>
                     ))}
                   </div>
                 ) : null}
                 {picked ? (
                   <p className="watch-add-picked">
-                    {picked.name} · {MARKET_LABEL[picked.market]}
+                    {picked.name} · {exchangeLabel(picked.symbol, picked.market)}
                   </p>
-                ) : stockQuery.trim() && !searching && searchResults.length === 0 && pending ? (
-                  <p className="watch-rail-hint">
-                    未搜到匹配，将按 {MARKET_LABEL[pending.market]} {pending.symbol} 加入
+                ) : pending && stockQuery.trim() ? (
+                  <p className={searchResults.length > 0 ? "watch-add-picked" : "watch-rail-hint"}>
+                    {searchResults.length > 0
+                      ? `${pending.name} · ${exchangeLabel(pending.symbol, pending.market)}`
+                      : `未搜到匹配，将按 ${exchangeLabel(pending.symbol, pending.market)} ${pending.symbol} 加入`}
                   </p>
                 ) : null}
                 <select
@@ -396,5 +398,19 @@ export function WatchRail({ selected, onSelect, reloadToken = 0 }: Props) {
         </>
       )}
     </aside>
+  );
+}
+
+function matchingSearch(query: string, results: StockSearchResult[]) {
+  const raw = query.trim().toUpperCase();
+  if (!raw || results.length === 0) return null;
+  return (
+    results.find((item) => item.symbol.toUpperCase() === raw || item.yahooSymbol.toUpperCase() === raw) ??
+    results.find(
+      (item) =>
+        item.symbol.replace(/\.[A-Z]{1,3}$/i, "").toUpperCase() === raw ||
+        item.yahooSymbol.replace(/\.[A-Z]{1,3}$/i, "").toUpperCase() === raw,
+    ) ??
+    results[0]
   );
 }

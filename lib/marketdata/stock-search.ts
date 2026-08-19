@@ -36,6 +36,7 @@ const YAHOO_EXCHANGES: Record<string, Market> = {
   HKG: "HK",
   SHH: "CN",
   SHZ: "CN",
+  ASX: "OTHER",
   TYO: "OTHER",
   JPX: "OTHER",
   OSA: "OTHER",
@@ -70,23 +71,21 @@ export function draftFromQuery(query: string): StockSearchResult | null {
 
 export function parseYahooQuotes(quotes: YahooQuote[]): StockSearchResult[] {
   return quotes
-    .filter(
-      (quote) =>
-        quote.quoteType === "EQUITY" &&
-        quote.symbol &&
-        quote.exchange &&
-        YAHOO_EXCHANGES[quote.exchange],
-    )
+    .filter((quote) => quote.quoteType === "EQUITY" && quote.symbol)
     .map((quote) => {
-      const market = YAHOO_EXCHANGES[quote.exchange as string];
-      const symbol = canonicalSymbol(quote.symbol as string, market);
+      const symbol = (quote.symbol as string).toUpperCase();
+      if (symbol.endsWith(".XA")) return null;
+      const market = marketFromYahoo(quote);
+      if (!market) return null;
+      const canonical = canonicalSymbol(symbol, market);
       return {
-        symbol,
-        yahooSymbol: quote.symbol as string,
-        name: quote.longname || quote.shortname || symbol,
+        symbol: canonical,
+        yahooSymbol: symbol,
+        name: quote.longname || quote.shortname || canonical,
         market,
       };
-    });
+    })
+    .filter((item): item is StockSearchResult => item != null);
 }
 
 export function parseEastmoneySuggest(payload: unknown): StockSearchResult[] {
@@ -98,7 +97,8 @@ export function parseEastmoneySuggest(payload: unknown): StockSearchResult[] {
     const row = asRecord(entry) as EastmoneySuggestRow;
     const classify = String(row.Classify ?? "").toUpperCase();
     const typeName = String(row.SecurityTypeName ?? "");
-    if (EASTMONEY_SKIP.has(classify) || /三板|指数|基金|债券/.test(typeName)) continue;
+    if (EASTMONEY_SKIP.has(classify) || /三板|指数|基金|债券|购A|沽A/.test(typeName)) continue;
+    if (String(row.SecurityType ?? "") === "6" || String(row.SecurityType ?? "") === "11") continue;
 
     const market = marketFromEastmoney(row);
     if (!market) continue;
@@ -147,16 +147,28 @@ function marketFromEastmoney(row: EastmoneySuggestRow): Market | null {
   return null;
 }
 
+function marketFromYahoo(quote: YahooQuote): Market | null {
+  if (quote.exchange && YAHOO_EXCHANGES[quote.exchange]) return YAHOO_EXCHANGES[quote.exchange];
+  const symbol = quote.symbol?.toUpperCase() ?? "";
+  if (symbol.endsWith(".AX")) return "OTHER";
+  return null;
+}
+
+function tickerBase(symbol: string) {
+  return symbol.replace(/\.[A-Z]{1,3}$/i, "").toUpperCase();
+}
+
 function rankScore(result: StockSearchResult, query: string): number {
   const raw = query.trim().toUpperCase();
   const guessed = guessAddMarket(raw);
   const canonical = guessed ? canonicalSymbol(raw, guessed) : raw;
   if (result.symbol === raw || result.symbol === canonical) return 0;
+  if (tickerBase(result.symbol) === raw || tickerBase(result.yahooSymbol) === raw) return 1;
   if (guessed && result.market === guessed && stripZeros(result.symbol) === stripZeros(raw)) {
-    return 1;
+    return 2;
   }
-  if (result.name.toUpperCase().includes(raw) || result.symbol.includes(raw)) return 2;
-  return 3;
+  if (result.name.toUpperCase().includes(raw) || result.symbol.includes(raw)) return 3;
+  return 4;
 }
 
 function stripZeros(value: string) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { articleMentionsStock, canonicalSymbol, symbolKey, toYahooSymbol } from "./symbols";
+import { articleMentionsStock, canonicalSymbol, exchangeLabel, inferMarket, symbolKey, toYahooSymbol } from "./symbols";
 
 test("canonical HK symbols drop exchange suffix and pad to 4 digits", () => {
   assert.equal(canonicalSymbol("0700.HK", "HK"), "0700");
@@ -26,7 +26,15 @@ test("Yahoo symbols keep exchange suffixes", () => {
   assert.equal(toYahooSymbol("600036", "CN"), "600036.SS");
   assert.equal(toYahooSymbol("MRVL", "US"), "MRVL");
   assert.equal(toYahooSymbol("6981.T", "OTHER"), "6981.T");
+  assert.equal(toYahooSymbol("FML.AX", "OTHER"), "FML.AX");
   assert.equal(toYahooSymbol("005930.KS", "JP"), "005930.KS");
+});
+
+test("Australian tickers are other-market Yahoo symbols", () => {
+  assert.equal(inferMarket("FML.AX"), "OTHER");
+  assert.equal(canonicalSymbol("FML.AX", "OTHER"), "FML.AX");
+  assert.equal(symbolKey("FML.AX", "AU"), "OTHER:FML.AX");
+  assert.equal(exchangeLabel("FML.AX", "OTHER"), "澳股");
 });
 
 test("other-market stocks share the OTHER key", () => {

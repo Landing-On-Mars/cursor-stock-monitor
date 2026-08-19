@@ -51,8 +51,12 @@ export async function loadQuote(
 
   const [yahooResult, eastmoneyResult, f10Result] = await Promise.allSettled([
     fetchYahooQuote(yahooSymbol),
-    fetchEastmoneyQuote(symbol, market),
-    market === "US" ? Promise.resolve(emptyStats()) : fetchEastmoneyFundamentals(symbol, market),
+    market === "OTHER"
+      ? Promise.resolve(emptyEastmoney())
+      : fetchEastmoneyQuote(symbol, market),
+    market === "HK" || market === "CN"
+      ? fetchEastmoneyFundamentals(symbol, market)
+      : Promise.resolve(emptyStats()),
   ]);
   const yahoo = yahooResult.status === "fulfilled" ? yahooResult.value : null;
   const eastmoney = eastmoneyResult.status === "fulfilled" ? eastmoneyResult.value : emptyEastmoney();
@@ -95,7 +99,7 @@ export async function loadQuote(
     price: yahoo?.price ?? eastmoney.price ?? cached?.snapshot.price ?? null,
     changePercent:
       eastmoney.changePercent ?? yahoo?.changePercent ?? changeFromBars(bars),
-    currency: yahoo?.currency || (market === "HK" ? "HKD" : market === "CN" ? "CNY" : "USD"),
+    currency: yahoo?.currency || (market === "HK" ? "HKD" : market === "CN" ? "CNY" : symbol.toUpperCase().endsWith(".AX") ? "AUD" : "USD"),
     marketCap: stats.marketCap,
     enterpriseValue: stats.enterpriseValue,
     trailingPE: stats.trailingPE,

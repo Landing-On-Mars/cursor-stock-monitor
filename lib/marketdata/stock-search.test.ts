@@ -20,6 +20,10 @@ test("draftFromQuery fills a ticker-only add", () => {
   assert.equal(draft?.market, "HK");
   assert.equal(draft?.symbol, "0883");
   assert.equal(draft?.yahooSymbol, "0883.HK");
+  const aus = draftFromQuery("FML.AX");
+  assert.equal(aus?.market, "OTHER");
+  assert.equal(aus?.symbol, "FML.AX");
+  assert.equal(aus?.yahooSymbol, "FML.AX");
 });
 
 test("parseYahooQuotes keeps HK equities and drops unknown exchanges", () => {
@@ -41,6 +45,46 @@ test("parseYahooQuotes keeps HK equities and drops unknown exchanges", () => {
   assert.equal(results[0]?.symbol, "0883");
   assert.equal(results[0]?.market, "HK");
   assert.equal(results[0]?.yahooSymbol, "0883.HK");
+});
+
+test("parseYahooQuotes keeps ASX FML and drops Chi-X tape", () => {
+  const results = parseYahooQuotes([
+    {
+      exchange: "ASX",
+      shortname: "FOCUS MIN FPO [FML]",
+      quoteType: "EQUITY",
+      symbol: "FML.AX",
+    },
+    {
+      exchange: "CXA",
+      quoteType: "EQUITY",
+      symbol: "FML.XA",
+    },
+    {
+      exchange: "TAI",
+      quoteType: "EQUITY",
+      symbol: "08835U.TW",
+    },
+  ]);
+  assert.equal(results.length, 1);
+  assert.equal(results[0]?.symbol, "FML.AX");
+  assert.equal(results[0]?.market, "OTHER");
+  assert.equal(results[0]?.yahooSymbol, "FML.AX");
+});
+
+test("mergeSearchResults ranks FML.AX first when querying FML", () => {
+  const merged = mergeSearchResults("FML", [
+    parseYahooQuotes([
+      {
+        exchange: "ASX",
+        shortname: "FOCUS MIN FPO [FML]",
+        quoteType: "EQUITY",
+        symbol: "FML.AX",
+      },
+    ]),
+  ]);
+  assert.equal(merged[0]?.symbol, "FML.AX");
+  assert.equal(merged[0]?.market, "OTHER");
 });
 
 test("parseEastmoneySuggest maps 港股 and A股, skips 三板", () => {

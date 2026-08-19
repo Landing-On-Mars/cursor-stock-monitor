@@ -1,6 +1,6 @@
-import type { Market } from "../watchlist-types";
+import { MARKET_LABEL, type Market } from "../watchlist-types";
 
-const OTHER_MARKETS = new Set(["OTHER", "JP", "KR", "UK", "GB", "CA", "TW", "SG"]);
+const OTHER_MARKETS = new Set(["OTHER", "JP", "KR", "UK", "GB", "CA", "TW", "SG", "AU", "ASX", "AX"]);
 
 export function normalizeMarket(market?: string | null): Market | null {
   const resolved = (market ?? "").trim().toUpperCase();
@@ -15,6 +15,7 @@ export function inferMarket(symbol: string): Market | null {
   const raw = symbol.trim().toUpperCase();
   if (raw.endsWith(".HK")) return "HK";
   if (raw.endsWith(".SS") || raw.endsWith(".SZ")) return "CN";
+  if (raw.endsWith(".AX")) return "OTHER";
   if (/^\d{4}(\.HK)?$/.test(raw)) return "HK";
   if (/^\d{6}(\.(SS|SZ))?$/.test(raw)) return "CN";
   if (/^[A-Z]{1,5}$/.test(raw)) return "US";
@@ -51,6 +52,18 @@ export function toYahooSymbol(symbol: string, market?: string | null): string {
       : `${canonical}.SZ`;
   }
   return canonical;
+}
+
+export function exchangeLabel(symbol: string, market: Market): string {
+  const raw = symbol.trim().toUpperCase();
+  if (raw.endsWith(".AX")) return "澳股";
+  if (raw.endsWith(".T")) return "日股";
+  if (raw.endsWith(".KS") || raw.endsWith(".KQ")) return "韩股";
+  if (raw.endsWith(".L")) return "英股";
+  if (raw.endsWith(".TO") || raw.endsWith(".V")) return "加股";
+  if (raw.endsWith(".TW") || raw.endsWith(".TWO")) return "台股";
+  if (raw.endsWith(".SI")) return "新加坡";
+  return MARKET_LABEL[market];
 }
 
 export function symbolKey(symbol: string, market?: string | null): string {
