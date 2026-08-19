@@ -526,8 +526,109 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 }
 .article-hit:hover { background: #f6f8f6; }
 .article-modal { max-width: 980px; }
+.article-modal .modal-head {
+  align-items: flex-start;
+  gap: 16px;
+}
+.article-modal .modal-head > div:first-child { flex: 1; min-width: 0; }
 .article-modal .modal-head h2 { font-size: 16px; }
+.article-reader-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+.article-reader-actions .btn {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: #4f5952;
+  font-size: 12px;
+  gap: 6px;
+  height: auto;
+  padding: 7px 11px;
+  width: auto;
+}
+.article-reader-actions .btn:hover {
+  background: #edf1ed;
+  border-color: #cad1cb;
+  color: var(--green);
+}
+.article-reader-actions .btn-primary,
+.article-reader-actions .btn-primary:hover {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+.article-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.article-source-input {
+  background: #fbfcfb;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  min-width: 10em;
+  padding: 3px 8px;
+  width: min(240px, 100%);
+}
+.article-source-input:focus {
+  border-color: #7fa38f;
+  box-shadow: 0 0 0 3px rgba(69, 125, 91, .1);
+  outline: none;
+}
 .article-body { max-height: 76vh; overflow: auto; padding: 10px 24px 26px; }
+.article-body .inline-error { margin: 0 0 12px; }
+.article-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: min(58vh, 620px);
+}
+.article-editor {
+  background: #fbfcfb;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: #2a322d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  min-height: min(52vh, 560px);
+  padding: 14px 16px;
+  resize: vertical;
+  width: 100%;
+}
+.md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.md-toolbar button {
+  align-items: center;
+  background: #f5f7f5;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: #3d4a42;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 5px;
+  height: auto;
+  padding: 6px 9px;
+  width: auto;
+}
+.md-toolbar button:hover {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.md-toolbar-red,
+.md-toolbar-red:hover {
+  color: var(--red);
+}
 .article-figure {
   background: #f6f8f6;
   border: 1px solid #e8ece8;

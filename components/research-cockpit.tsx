@@ -367,7 +367,33 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         </section>
       ) : null}
 
-      {articlePath ? <ArticleReader key={articlePath} path={articlePath} onClose={() => setArticlePath(null)} /> : null}
+      {articlePath ? (
+        <ArticleReader
+          key={articlePath}
+          path={articlePath}
+          onClose={() => setArticlePath(null)}
+          onSaved={(saved) => {
+            setData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    articles: prev.articles.map((item) =>
+                      item.path === saved.path
+                        ? {
+                            ...item,
+                            title: saved.title,
+                            source: saved.source,
+                            publishedAt: saved.publishedAt,
+                            status: saved.status,
+                          }
+                        : item,
+                    ),
+                  }
+                : prev,
+            );
+          }}
+        />
+      ) : null}
     </div>
   );
 }

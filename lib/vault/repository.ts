@@ -8,6 +8,7 @@ import { describeVaultPath, resolveVaultPath, vaultArticleAsset, vaultFile } fro
 import { articleMentionsStock, symbolKey } from "./symbols";
 import { articleAssetCandidates } from "./article-media";
 import type { ArticleSummary, PeerStock, StockCockpit } from "./types";
+import { replaceFrontmatterScalar, replaceMarkdownBody } from "./write-article";
 
 export type VaultStatus = {
   ok: boolean;
@@ -114,6 +115,27 @@ export function readArticle(relativePath: string): ParsedArticle | null {
   const absolute = vaultFile(relativePath);
   if (!absolute) return null;
   return parseArticleMarkdown(relativePath.replaceAll("\\", "/"), fs.readFileSync(absolute, "utf8"));
+}
+
+export function writeArticle(
+  relativePath: string,
+  body: string,
+  fields?: { source?: string },
+): ParsedArticle {
+  const absolute = vaultFile(relativePath);
+  if (!absolute) {
+    throw new Error("找不到这篇文章。");
+  }
+
+  const current = fs.readFileSync(absolute, "utf8");
+  let next = replaceMarkdownBody(current, body);
+  if (fields?.source !== undefined) {
+    next = replaceFrontmatterScalar(next, "source", fields.source.trim());
+  }
+  fs.writeFileSync(absolute, next);
+  resetVaultCache();
+
+  return parseArticleMarkdown(relativePath.replaceAll("\\", "/"), next);
 }
 
 export function resolveArticleAsset(articlePath: string, src: string): string | null {
