@@ -17,3 +17,13 @@ Vault 路径在设置页填写并保存在本机 `data/local-config.json`（不�
 - 家里：`C:\Users\musk\My Drive\Northstar\Vault`
 - 办公室：这台电脑 Google Drive 里的 `Northstar\Vault`
 每台电脑各保存一次。K 线缓存在 `Vault/MarketData`，随 Drive 同步。
+
+Cursor canvas（`.canvas.tsx`）归档在 `Vault/Canvases/`，随 Drive 同步：
+- 办公室：`C:\Users\ht.tu\My Drive\Northstar\Vault\Canvases`
+- 家里：`C:\Users\musk\My Drive\Northstar\Vault\Canvases`
+
+新建或更新研究用 canvas 时：先写到 `Vault/Canvases/<name>.canvas.tsx`，再在本机 Cursor 目录做同名硬链接（否则聊天旁打不开 live canvas）：
+- 办公室：`C:\Users\ht.tu\.cursor\projects\c-Users-ht-tu-cursor-stock-monitor\canvases\`
+- 家里：`C:\Users\musk\.cursor\projects\c-Users-musk-cursor-stock-monitor\canvases\`（若实际目录名不同，以 `~/.cursor/projects/` 为准）
+
+不要把 `node_modules`、`tsconfig.json`、`.canvas.status.json` 放进 Drive。Markdown 结论仍放 `Vault/Articles/`。

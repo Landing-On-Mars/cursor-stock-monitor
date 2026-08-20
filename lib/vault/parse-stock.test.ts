@@ -45,6 +45,12 @@ _全球前十大铜生产商。关键变量：铜价与刚果产能。_
 | --- | --- | --- |
 | 2026-06-05 | #news | 黄仁勋背书 |
 | 2025-03-20 | #earnings | 年报超预期 |
+
+## 估值记录
+
+| 日期 | 股价 | 估值方法 | 核心假设 | 合理价值 | 结论 |
+|---|---|---|---|---|---|
+| 2026-08-19 | HK$10 | 2027E PE | 铜价中枢 | 8x | 不便宜 |
 `;
 
 test("parses thesis, expectations and timeline from mixed Chinese/English notes", () => {
@@ -57,5 +63,8 @@ test("parses thesis, expectations and timeline from mixed Chinese/English notes"
   assert.equal(stock.expectations[1].statusKind, "pending");
   assert.equal(stock.catalysts[0].statusKind, "drift");
   assert.equal(stock.timeline[0].type, "news");
+  assert.equal(stock.valuations.length, 1);
+  assert.equal(stock.valuations[0].method, "2027E PE");
+  assert.equal(stock.valuations[0].value, "8x");
   assert.equal(statusKind("❌ 落空"), "miss");
 });

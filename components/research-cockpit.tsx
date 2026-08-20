@@ -8,7 +8,7 @@ import { MarkdownEditor } from "@/components/markdown-editor";
 import { StockChart } from "@/components/stock-chart";
 import { sourceLabel } from "@/lib/marketdata/cache-policy";
 import type { QuoteSnapshot } from "@/lib/quote-types";
-import type { ArticleSummary, StockCockpit } from "@/lib/vault/types";
+import type { ArticleSummary, ExpectationRow, StockCockpit } from "@/lib/vault/types";
 
 type Props = {
   symbol: string;
@@ -58,12 +58,26 @@ function fmtYield(n: number | null) {
   return `${pct.toFixed(2)}%`;
 }
 
+function statusLabel(row: ExpectationRow) {
+  if (row.statusKind === "met") return "达标";
+  if (row.statusKind === "drift") return "偏差";
+  if (row.statusKind === "miss") return "落空";
+  if (row.statusKind === "pending") return "待验证";
+  return row.status || "—";
+}
+
+function thesisMarkdown(summary: string, thesis: string) {
+  if (!summary.trim() || /\[!summary\]/i.test(thesis)) return thesis;
+  return `> [!summary] 一句话投资逻辑\n> ${summary.trim()}\n\n${thesis}`;
+}
+
 export function ResearchCockpit({ symbol, market, name }: Props) {
   const [data, setData] = useState<ResearchPayload | null>(null);
   const [quote, setQuote] = useState<QuoteSnapshot | null>(null);
   const [notes, setNotes] = useState<FocusNote[]>([]);
   const [range, setRange] = useState("daily");
   const [noteDate, setNoteDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +162,8 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   }, [fetchQuote]);
 
   async function addNote() {
-    if (!noteBody.trim()) return false;
+    const body = joinNoteHeading(noteTitle, noteBody);
+    if (!body) return false;
     setNoteError(null);
     setComposeSaving(true);
     try {
@@ -159,7 +174,7 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
           symbol,
           market,
           notedAt: noteDate,
-          body: noteBody.trim(),
+          body,
         }),
       });
       const json = (await res.json()) as FocusNote | { error?: string };
@@ -167,6 +182,7 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         setNoteError("error" in json && json.error ? json.error : "记下失败。");
         return false;
       }
+      setNoteTitle("");
       setNoteBody("");
       const list = await fetch(
         `/api/focus?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`,
@@ -298,11 +314,11 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
             <strong>{fmtCap(quote?.enterpriseValue ?? null)}</strong>
           </div>
           <div>
-            <span>滚动PE</span>
+            <span title="过去 12 个月利润，可能混进去年好年景">滚动PE</span>
             <strong>{fmtNum(quote?.trailingPE ?? null, 1)}</strong>
           </div>
           <div>
-            <span>远期PE</span>
+            <span title="行情软件一致预期，季报后可能还没下修">远期PE</span>
             <strong>{fmtNum(quote?.forwardPE ?? null, 1)}</strong>
           </div>
           <div>
@@ -347,6 +363,7 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
                 type="button"
                 onClick={() => {
                   setNoteDate(new Date().toISOString().slice(0, 10));
+                  setNoteTitle("");
                   setNoteBody("");
                   setNoteError(null);
                   setComposing(true);
@@ -364,7 +381,7 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
                   <li key={note.id}>
                     <button className="focus-note-hit" type="button" onClick={() => setOpenNote(note)}>
                       <span>{note.notedAt}</span>
-                      <strong>{notePreview(note.body)}</strong>
+                      <strong>{noteHeadline(note.body)}</strong>
                     </button>
                     <button className="focus-note-delete" type="button" onClick={() => removeNote(note.id)}>
                       删除
@@ -449,9 +466,36 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
               {thesisError ? <p className="quote-error">{thesisError}</p> : null}
               <MarkdownEditor onChange={setThesisDraft} value={thesisDraft} />
             </div>
-          ) : hasText(stock.thesis) ? (
+          ) : hasText(stock.thesis) || stock.summary || stock.valuations.length > 0 ? (
             <div className="article-markdown thesis-markdown">
-              <ArticleMarkdown value={stock.thesis} />
+              {hasText(stock.thesis) || stock.summary ? (
+                <ArticleMarkdown value={thesisMarkdown(stock.summary, stock.thesis)} />
+              ) : null}
+              {stock.valuations.length > 0 && !/利润口径|估值记录/.test(stock.thesis) ? (
+                <div className="valuation-panel">
+                  <h5 className="article-h3">利润口径</h5>
+                  <table className="article-table">
+                    <thead>
+                      <tr>
+                        <th>口径</th>
+                        <th>利润假设</th>
+                        <th>对应 PE</th>
+                        <th>怎么读</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stock.valuations.map((row) => (
+                        <tr key={`${row.date}-${row.method}-${row.value}`}>
+                          <td>{row.method || "—"}</td>
+                          <td>{row.assumption || "—"}</td>
+                          <td>{row.value || "—"}</td>
+                          <td>{row.takeaway || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </div>
           ) : (
             <p className="muted-copy cockpit-empty-inline">还没有投资逻辑，点编辑写入 Vault 个股页。</p>
@@ -463,16 +507,38 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
         <section className="card">
           <div className="card-head">
             <h2>预期跟踪</h2>
+            {stock.updatedAt ? <span className="quote-asof">{stock.updatedAt}</span> : null}
           </div>
-          <ul className="metric-list">
-            {stock.expectations.map((row) => (
-              <li key={`${row.text}-${row.deadline}`}>
-                {row.text}
-                {row.deadline ? ` · ${row.deadline}` : ""}
-                {row.status ? ` · ${row.status}` : ""}
-              </li>
-            ))}
-          </ul>
+          <div className="expectation-wrap">
+            <table className="cockpit-table expectation-table">
+              <colgroup>
+                <col className="expectation-col-text" />
+                <col className="expectation-col-when" />
+                <col className="expectation-col-status" />
+                <col className="expectation-col-result" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>预期</th>
+                  <th>时点</th>
+                  <th>状态</th>
+                  <th>实际结果</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stock.expectations.map((row) => (
+                  <tr key={`${row.text}-${row.deadline}`}>
+                    <td>{row.text}</td>
+                    <td>{row.deadline || "—"}</td>
+                    <td>
+                      <span className={`status-chip is-${row.statusKind}`}>{statusLabel(row)}</span>
+                    </td>
+                    <td>{row.result || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       ) : null}
 
@@ -491,16 +557,19 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
       {composing ? (
         <FocusNoteComposer
           date={noteDate}
+          title={noteTitle}
           body={noteBody}
           saving={composeSaving}
           error={noteError}
           onDate={setNoteDate}
+          onTitle={setNoteTitle}
           onBody={setNoteBody}
           onSave={() => void addNote()}
           onClose={() => {
             if (composeSaving) return;
             setComposing(false);
             setNoteError(null);
+            setNoteTitle("");
             setNoteBody("");
           }}
         />
@@ -550,36 +619,53 @@ export function ResearchCockpit({ symbol, market, name }: Props) {
   );
 }
 
-function notePreview(body: string) {
-  return body
-    .replace(/\*\*/g, "")
-    .replace(/==/g, "")
-    .replace(/^#+\s+/gm, "")
-    .replace(/^[-*]\s+/gm, "")
-    .replace(/\s+/g, " ")
-    .trim();
+function splitNoteHeading(markdown: string) {
+  const text = markdown.replace(/\r\n/g, "\n").trim();
+  const match = text.match(/^#\s+(.+)\n*(?:[\n\r]+)?([\s\S]*)$/);
+  if (!match) return { title: "", body: text };
+  return { title: match[1].trim(), body: (match[2] ?? "").trim() };
 }
 
-function noteTitle(body: string) {
-  const first = body.split("\n").find((line) => line.trim())?.trim() || "日志";
-  return first.length > 48 ? `${first.slice(0, 48)}…` : first;
+function joinNoteHeading(title: string, body: string) {
+  const heading = title.trim();
+  const text = body.replace(/\r\n/g, "\n").trim();
+  if (!heading) return text;
+  return text ? `# ${heading}\n\n${text}` : `# ${heading}`;
+}
+
+function noteHeadline(body: string) {
+  const { title, body: rest } = splitNoteHeading(body);
+  const raw =
+    title ||
+    rest
+      .split("\n")
+      .find((line) => line.trim())
+      ?.trim()
+      .replace(/^#+\s+/, "")
+      .replace(/\*\*/g, "") ||
+    "日志";
+  return raw.length > 48 ? `${raw.slice(0, 48)}…` : raw;
 }
 
 function FocusNoteComposer({
   date,
+  title,
   body,
   saving,
   error,
   onDate,
+  onTitle,
   onBody,
   onSave,
   onClose,
 }: {
   date: string;
+  title: string;
   body: string;
   saving: boolean;
   error: string | null;
   onDate: (value: string) => void;
+  onTitle: (value: string) => void;
   onBody: (value: string) => void;
   onSave: () => void;
   onClose: () => void;
@@ -600,9 +686,15 @@ function FocusNoteComposer({
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <div className="modal-head">
-          <div>
-            <h2>写日志</h2>
+        <div className="modal-head note-composer-head">
+          <div className="note-meta-row">
+            <input
+              aria-label="标题"
+              className="note-title-input"
+              onChange={(event) => onTitle(event.target.value)}
+              placeholder="标题"
+              value={title}
+            />
             <input
               aria-label="日期"
               className="focus-date"
@@ -612,7 +704,12 @@ function FocusNoteComposer({
             />
           </div>
           <div className="article-reader-actions">
-            <button className="btn btn-primary" disabled={saving || !body.trim()} type="button" onClick={onSave}>
+            <button
+              className="btn btn-primary"
+              disabled={saving || (!title.trim() && !body.trim())}
+              type="button"
+              onClick={onSave}
+            >
               {saving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
               {saving ? "保存中…" : "保存"}
             </button>
@@ -628,7 +725,7 @@ function FocusNoteComposer({
           {error ? <div className="inline-error">{error}</div> : null}
           <MarkdownEditor
             onChange={onBody}
-            placeholder="当天看法，写入 Stocks 里这只股票的日志文件。支持标题、粗体、列表。"
+            placeholder="当天看法，写入 Stocks 里这只股票的日志文件。支持粗体、列表。"
             value={body}
           />
         </div>
@@ -650,25 +747,31 @@ function FocusNoteReader({
   onClose: () => void;
   onSaved: (note: FocusNote) => void;
 }) {
+  const parsed = splitNoteHeading(note.body);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateDraft, setDateDraft] = useState(note.notedAt);
-  const [bodyDraft, setBodyDraft] = useState(note.body);
+  const [titleDraft, setTitleDraft] = useState(parsed.title);
+  const [bodyDraft, setBodyDraft] = useState(parsed.body);
 
   useEffect(() => {
+    const next = splitNoteHeading(note.body);
     setEditing(false);
     setError(null);
     setDateDraft(note.notedAt);
-    setBodyDraft(note.body);
+    setTitleDraft(next.title);
+    setBodyDraft(next.body);
   }, [note.id, note.notedAt, note.body]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (editing) {
+        const next = splitNoteHeading(note.body);
         setDateDraft(note.notedAt);
-        setBodyDraft(note.body);
+        setTitleDraft(next.title);
+        setBodyDraft(next.body);
         setEditing(false);
         setError(null);
         return;
@@ -680,7 +783,8 @@ function FocusNoteReader({
   }, [editing, note.body, note.notedAt, onClose]);
 
   async function saveDraft() {
-    if (!bodyDraft.trim()) return;
+    const body = joinNoteHeading(titleDraft, bodyDraft);
+    if (!body) return;
     setSaving(true);
     setError(null);
     try {
@@ -691,7 +795,7 @@ function FocusNoteReader({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             notedAt: dateDraft,
-            body: bodyDraft.trim(),
+            body,
           }),
         },
       );
@@ -709,6 +813,15 @@ function FocusNoteReader({
     }
   }
 
+  function resetDraft() {
+    const next = splitNoteHeading(note.body);
+    setDateDraft(note.notedAt);
+    setTitleDraft(next.title);
+    setBodyDraft(next.body);
+    setEditing(false);
+    setError(null);
+  }
+
   return (
     <div
       className="modal-backdrop"
@@ -723,10 +836,16 @@ function FocusNoteReader({
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <div className="modal-head">
-          <div>
-            <h2>{noteTitle(editing ? bodyDraft : note.body)}</h2>
-            {editing ? (
+        <div className={editing ? "modal-head note-composer-head" : "modal-head"}>
+          {editing ? (
+            <div className="note-meta-row">
+              <input
+                aria-label="标题"
+                className="note-title-input"
+                onChange={(event) => setTitleDraft(event.target.value)}
+                placeholder="标题"
+                value={titleDraft}
+              />
               <input
                 aria-label="日期"
                 className="focus-date"
@@ -734,18 +853,23 @@ function FocusNoteReader({
                 type="date"
                 value={dateDraft}
               />
-            ) : (
+            </div>
+          ) : (
+            <div>
+              <h2>{noteHeadline(note.body)}</h2>
               <p className="article-meta">{note.notedAt}</p>
-            )}
-          </div>
+            </div>
+          )}
           <div className="article-reader-actions">
             {!editing ? (
               <button
                 className="btn"
                 type="button"
                 onClick={() => {
+                  const next = splitNoteHeading(note.body);
                   setDateDraft(note.notedAt);
-                  setBodyDraft(note.body);
+                  setTitleDraft(next.title);
+                  setBodyDraft(next.body);
                   setEditing(true);
                   setError(null);
                 }}
@@ -757,24 +881,14 @@ function FocusNoteReader({
               <>
                 <button
                   className="btn btn-primary"
-                  disabled={saving}
+                  disabled={saving || (!titleDraft.trim() && !bodyDraft.trim())}
                   type="button"
                   onClick={() => void saveDraft()}
                 >
                   {saving ? <LoaderCircle className="spin" size={14} /> : <Save size={14} />}
                   {saving ? "保存中…" : "保存"}
                 </button>
-                <button
-                  className="btn"
-                  disabled={saving}
-                  type="button"
-                  onClick={() => {
-                    setDateDraft(note.notedAt);
-                    setBodyDraft(note.body);
-                    setEditing(false);
-                    setError(null);
-                  }}
-                >
+                <button className="btn" disabled={saving} type="button" onClick={resetDraft}>
                   取消
                 </button>
               </>
@@ -790,7 +904,7 @@ function FocusNoteReader({
             <MarkdownEditor onChange={setBodyDraft} value={bodyDraft} />
           ) : (
             <div className="article-markdown">
-              <ArticleMarkdown value={note.body} />
+              <ArticleMarkdown value={splitNoteHeading(note.body).body || note.body} />
             </div>
           )}
         </div>

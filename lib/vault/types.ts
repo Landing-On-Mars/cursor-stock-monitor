@@ -12,6 +12,15 @@ export type TimelineRow = {
   event: string;
 };
 
+export type ValuationRow = {
+  date: string;
+  price: string;
+  method: string;
+  assumption: string;
+  value: string;
+  takeaway: string;
+};
+
 export type CatalystRow = {
   text: string;
   detail: string;
@@ -56,6 +65,7 @@ export type StockCockpit = {
   catalysts: CatalystRow[];
   buyConditions: string[];
   sellConditions: string[];
+  valuations: ValuationRow[];
   timeline: TimelineRow[];
   notes: string[];
 };

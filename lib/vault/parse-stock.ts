@@ -13,6 +13,7 @@ import type {
   ExpectationRow,
   StockCockpit,
   TimelineRow,
+  ValuationRow,
 } from "./types";
 
 export function parseStockMarkdown(relativePath: string, raw: string): StockCockpit {
@@ -25,9 +26,11 @@ export function parseStockMarkdown(relativePath: string, raw: string): StockCock
   const riskSection = findSection(sections, /证伪|主要风险/)?.content ?? "";
   const buySection = findSection(sections, /买入或加仓/)?.content ?? "";
   const sellSection = findSection(sections, /减仓或退出/)?.content ?? "";
+  const valuationSection = findSection(sections, /估值记录/)?.content ?? "";
   const timelineSection = findSection(sections, /^timeline$/i)?.content ?? "";
 
   const summary =
+    parseSummaryCallout(body) ||
     firstItalic(thesis) ||
     asString(data.summary) ||
     thesis.split(/\n+/).find((line) => line.trim() && !line.startsWith("#") && !line.startsWith("**"))?.replace(/^>\s*/, "").trim() ||
@@ -57,6 +60,7 @@ export function parseStockMarkdown(relativePath: string, raw: string): StockCock
     catalysts: parseCatalysts(catalystSection),
     buyConditions: extractBullets(buySection),
     sellConditions: extractBullets(sellSection),
+    valuations: parseValuations(valuationSection),
     timeline: parseTimeline(timelineSection),
     notes: extractBullets(notesSection).slice(0, 8),
   };
@@ -69,7 +73,7 @@ function parseExpectations(content: string): ExpectationRow[] {
   return table.rows.map((row) => {
     const cells = pickCells(table, row, {
       text: /预期|判断|内容/,
-      deadline: /时点|日期|验证/,
+      deadline: /时点|日期/,
       status: /状态/,
       result: /结果|记录|实际/,
     });
@@ -109,6 +113,32 @@ function parseCatalysts(content: string): CatalystRow[] {
     status: "",
     statusKind: "unknown" as const,
   }));
+}
+
+function parseValuations(content: string): ValuationRow[] {
+  const table = parseTables(content)[0];
+  if (!table) return [];
+
+  return table.rows
+    .map((row) => {
+      const cells = pickCells(table, row, {
+        date: /date|日期/,
+        price: /股价|现价/,
+        method: /方法|口径|估值/,
+        assumption: /假设|利润/,
+        value: /合理价值|对应PE|倍数/,
+        takeaway: /结论|含义|怎么读/,
+      });
+      return {
+        date: cells.date || row[0] || "",
+        price: cells.price,
+        method: cells.method,
+        assumption: cells.assumption,
+        value: cells.value,
+        takeaway: cells.takeaway,
+      };
+    })
+    .filter((row) => row.method || row.assumption || row.value);
 }
 
 function parseTimeline(content: string): TimelineRow[] {
@@ -170,4 +200,14 @@ function compactText(content: string): string {
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+function parseSummaryCallout(body: string) {
+  const match = body.match(/>\s*\[!summary\][^\n]*\n((?:>[^\n]*(?:\n|$))*)/i);
+  if (!match) return "";
+  return match[1]
+    .split("\n")
+    .map((line) => line.replace(/^>\s?/, "").trim())
+    .filter(Boolean)
+    .join(" ");
 }
