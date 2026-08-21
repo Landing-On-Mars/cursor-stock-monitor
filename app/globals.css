@@ -795,20 +795,18 @@ h1 { font-family: var(--font-noto), sans-serif; font-size: 25px; letter-spacing:
 .article-table th,
 .article-table td {
   border-bottom: 1px solid var(--line);
+  min-width: 0;
+  overflow-wrap: break-word;
   padding: 8px 12px 8px 0;
   text-align: left;
   vertical-align: top;
+  white-space: normal;
+  word-break: break-word;
 }
 .article-table th {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
-  white-space: nowrap;
-}
-.article-table td:nth-child(3),
-.article-table th:nth-child(3) {
-  width: 88px;
-  white-space: nowrap;
 }
 .article-table tr:last-child td { border-bottom: 0; }
 .article-mark {
